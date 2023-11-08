@@ -73,4 +73,12 @@ class ShapeProvier with ChangeNotifier {
     }
   ];
   List<Map<String, dynamic>> get shapeList => _shapeList;
+
+  bool _isShaping = false;
+  bool get isShaping => _isShaping;
+
+  void setIsShaping(bool isShaping) {
+    _isShaping = isShaping;
+    notifyListeners();
+  }
 }

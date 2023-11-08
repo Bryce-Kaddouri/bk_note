@@ -132,6 +132,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                           context.read<EraserProvider>().setIsErasing(true);
                           context.read<PenProvider>().setIsPennig(false);
                           context.read<TextProvider>().setIsTexting(false);
+                          context.read<ShapeProvier>().setIsShaping(false);
+
                           await showModalBottomSheet(
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.only(
@@ -192,6 +194,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                           context.read<PenProvider>().setIsPennig(true);
                           context.read<EraserProvider>().setIsErasing(false);
                           context.read<TextProvider>().setIsTexting(false);
+                          context.read<ShapeProvier>().setIsShaping(false);
+
                           await showModalBottomSheet(
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.only(
@@ -283,6 +287,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                           context.read<TextProvider>().setIsTexting(true);
                           context.read<EraserProvider>().setIsErasing(false);
                           context.read<PenProvider>().setIsPennig(false);
+                          context.read<ShapeProvier>().setIsShaping(false);
 
                           await showModalBottomSheet(
                             shape: RoundedRectangleBorder(
@@ -373,6 +378,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       // icon shape
                       IconButton(
                         onPressed: () async {
+                          context.read<ShapeProvier>().setIsShaping(true);
+                          context.read<EraserProvider>().setIsErasing(false);
+                          context.read<PenProvider>().setIsPennig(false);
+                          context.read<TextProvider>().setIsTexting(false);
+
                           await showModalBottomSheet(
                             useSafeArea: true,
                             clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -389,6 +399,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                             showDragHandle: true,
                             context: context,
                             builder: (context) {
+                              /*
+                              context
+                                  .read<EraserProvider>()
+                                  .setIsErasing(false);
+                              context.read<PenProvider>().setIsPennig(false);
+                              context.read<TextProvider>().setIsTexting(false);*/
+
                               return Container(
                                 color: Colors.green,
                                 width: MediaQuery.of(context).size.width * 0.5,
@@ -545,7 +562,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                         },
                         icon: Icon(
                           PhosphorIconsBold.shapes,
-                          color: Colors.white,
+                          color: context.watch<ShapeProvier>().isShaping
+                              ? Colors.grey
+                              : Colors.white,
                           size: 30,
                         ),
                       ),
@@ -562,78 +581,43 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               print(_controller.value);
               // move the positioned widget
               return Transform.translate(
-                  offset: Offset(_controller.value * 60, 10),
-                  /* child: Positioned(
-                    top: 20,
-                    left: sidebarOpen ? 60 : 0,*/
-                  child: GestureDetector(
-                    onTap: () {
-                      sidebarOpen
-                          ? _controller.reverse()
-                          : _controller.forward();
-                      setState(() {
-                        sidebarOpen = !sidebarOpen;
-                      });
-                    },
-                    child: Container(
-                      alignment: Alignment.center,
-                      height: 40,
-                      width: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            spreadRadius: 3,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Transform.rotate(
-                          angle: _controller.value * 3.14,
-                          child: Icon(
-                            Icons.arrow_forward_ios,
-                            size: 20,
-                          ),
+                offset: Offset(_controller.value * 60, 10),
+                child: GestureDetector(
+                  onTap: () {
+                    sidebarOpen ? _controller.reverse() : _controller.forward();
+                    setState(() {
+                      sidebarOpen = !sidebarOpen;
+                    });
+                  },
+                  child: Container(
+                    alignment: Alignment.center,
+                    height: 40,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          spreadRadius: 3,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: _controller.value * 3.14,
+                        child: Icon(
+                          Icons.arrow_forward_ios,
+                          size: 20,
                         ),
                       ),
                     ),
-                  ));
-            },
-          ),
-
-          /* Positioned(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  sidebarOpen = !sidebarOpen;
-                });
-              },
-              child: Container(
-                padding: EdgeInsets.only(
-                  left: sidebarOpen ? 8 : 4,
-                ),
-                height: 40,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(
-                    sidebarOpen
-                        ? Icons.arrow_back_ios
-                        : Icons.arrow_forward_ios,
-                    size: 20,
                   ),
                 ),
-              ),
-            ),
-            top: 20,
-            left: sidebarOpen ? 60 : 0,
-          ),*/
+              );
+            },
+          ),
         ],
       ),
     );
