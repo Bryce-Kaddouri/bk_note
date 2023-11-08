@@ -553,7 +553,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-              Expanded(child: Container(color: Colors.green)),
+              Expanded(child: Container()),
             ],
           ),
           AnimatedBuilder(
