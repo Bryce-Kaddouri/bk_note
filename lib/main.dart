@@ -1,11 +1,22 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+
 import 'package:bk_note/provider/eraser_provider.dart';
+import 'package:bk_note/provider/hand_provider.dart';
 import 'package:bk_note/provider/pen_provider.dart';
 import 'package:bk_note/provider/shape_provider.dart';
 import 'package:bk_note/provider/text_provider.dart';
+import 'package:bk_note/provider/un_or_re_do_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
+import 'package:flutter_painter_v2/flutter_painter_extensions.dart';
+import 'package:flutter_painter_v2/flutter_painter_pure.dart';
+import 'dart:ui' as ui;
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +34,8 @@ void main() {
         ChangeNotifierProvider(create: (_) => PenProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => ShapeProvier()),
+        ChangeNotifierProvider(create: (_) => UnOrReDoProvider()),
+        ChangeNotifierProvider(create: (_) => HandProvider()),
       ],
       child: const MyApp(),
     ),
@@ -60,6 +73,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   bool sidebarOpen = true;
   String selectedShape = '';
   String action = '';
+  FocusNode textFocusNode = FocusNode();
+  late PainterController controller;
+  static const Color red = Color(0xFFFF0000);
+  Paint shapePaint = Paint()
+    ..strokeWidth = 5
+    ..color = Colors.red
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
 
   @override
   void initState() {
@@ -69,6 +90,43 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       vsync: this,
     );
     _controller.value = 1;
+
+    controller = PainterController(
+        settings: PainterSettings(
+            text: TextSettings(
+              focusNode: textFocusNode,
+              textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold, color: red, fontSize: 18),
+            ),
+            freeStyle: const FreeStyleSettings(
+              color: red,
+              strokeWidth: 10,
+            ),
+            shape: ShapeSettings(
+              paint: shapePaint,
+              drawOnce: false,
+            ),
+            scale: const ScaleSettings(
+              enabled: true,
+              minScale: 1,
+              maxScale: 5,
+            )));
+    // Listen to focus events of the text field
+    textFocusNode.addListener(onFocus);
+
+    controller.addListener(() {
+      context.read<UnOrReDoProvider>().setCanRedo(controller.canRedo);
+      context.read<UnOrReDoProvider>().setCanUndo(controller.canUndo);
+
+      print('controller can redo');
+
+      print(controller.canRedo);
+      print('controller can undo');
+      print(controller.canUndo);
+      if (controller.shapePaint == null) {
+        context.read<ShapeProvier>().setShapeIndex(-1);
+      }
+    });
   }
 
   @override
@@ -95,23 +153,41 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                     children: [
                       const SizedBox(height: 40),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          if (controller.canRedo) {
+                            redo();
+                          } else {
+                            return;
+                          }
+                        },
                         icon: Icon(
                           Icons.redo,
-                          color: Colors.white,
+                          color: context.watch<UnOrReDoProvider>().canRedo
+                              ? Colors.white
+                              : Colors.grey,
                           size: 30,
                         ),
                       ),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          if (controller.canUndo) {
+                            undo();
+                          } else {
+                            return;
+                          }
+                        },
                         icon: Icon(
                           Icons.undo,
-                          color: Colors.white,
+                          color: context.watch<UnOrReDoProvider>().canUndo
+                              ? Colors.white
+                              : Colors.grey,
                           size: 30,
                         ),
                       ),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          removeSelectedDrawable();
+                        },
                         icon: Icon(
                           Icons.delete,
                           color: Colors.white,
@@ -119,20 +195,43 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          renderImage();
+                        },
                         icon: Icon(
                           Icons.save,
                           color: Colors.white,
                           size: 30,
                         ),
                       ),
+                      IconButton(
+                        onPressed: () {
+                          useHand();
+                          context.read<HandProvider>().setIsHanding(true);
+                          context.read<EraserProvider>().setIsErasing(false);
+                          context.read<PenProvider>().setIsPennig(false);
+                          context.read<TextProvider>().setIsTexting(false);
+                          context.read<ShapeProvier>().setIsShaping(false);
+                        },
+                        icon: Icon(
+                          // icon to move the canvas
+                          PhosphorIconsFill.hand,
+                          color: context.watch<HandProvider>().isHanding
+                              ? Colors.grey
+                              : Colors.white,
+                          size: 30,
+                        ),
+                      ),
+
                       // eraser icon
                       IconButton(
                         onPressed: () async {
+                          toggleFreeStyleErase();
                           context.read<EraserProvider>().setIsErasing(true);
                           context.read<PenProvider>().setIsPennig(false);
                           context.read<TextProvider>().setIsTexting(false);
                           context.read<ShapeProvier>().setIsShaping(false);
+                          context.read<HandProvider>().setIsHanding(false);
 
                           await showModalBottomSheet(
                             shape: RoundedRectangleBorder(
@@ -171,6 +270,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                           context
                                               .read<EraserProvider>()
                                               .setStrokeWidth(value);
+                                          setFreeStyleStrokeWidth(value);
                                         },
                                       ),
                                     ),
@@ -191,10 +291,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       ),
                       IconButton(
                         onPressed: () async {
+                          toggleFreeStyleDraw();
                           context.read<PenProvider>().setIsPennig(true);
                           context.read<EraserProvider>().setIsErasing(false);
                           context.read<TextProvider>().setIsTexting(false);
                           context.read<ShapeProvier>().setIsShaping(false);
+                          context.read<HandProvider>().setIsHanding(false);
 
                           await showModalBottomSheet(
                             shape: RoundedRectangleBorder(
@@ -234,6 +336,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                               context
                                                   .read<PenProvider>()
                                                   .setStrokeWidth(value);
+                                              setFreeStyleStrokeWidth(value);
                                             },
                                           ),
                                         ),
@@ -261,6 +364,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                               context
                                                   .read<PenProvider>()
                                                   .setColor(value);
+                                              setFreeStyleColor(context
+                                                  .read<PenProvider>()
+                                                  .colorCalculated);
                                             },
                                           ),
                                         ),
@@ -284,10 +390,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       // Text icon
                       IconButton(
                         onPressed: () async {
+                          addText();
+                          setTextFontSize(
+                              context.read<TextProvider>().fontSize.toDouble());
+                          setTextColor();
                           context.read<TextProvider>().setIsTexting(true);
                           context.read<EraserProvider>().setIsErasing(false);
                           context.read<PenProvider>().setIsPennig(false);
                           context.read<ShapeProvier>().setIsShaping(false);
+                          context.read<HandProvider>().setIsHanding(false);
 
                           await showModalBottomSheet(
                             shape: RoundedRectangleBorder(
@@ -310,7 +421,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                     Row(
                                       children: [
                                         SizedBox(width: 20),
-                                        Text('Stroke Width'),
+                                        Text('Font Size'),
                                         Expanded(
                                           child: Slider(
                                             value: context
@@ -328,6 +439,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                               context
                                                   .read<TextProvider>()
                                                   .setFontSize(value.toInt());
+                                              setTextFontSize(value);
                                             },
                                           ),
                                         ),
@@ -355,6 +467,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                               context
                                                   .read<TextProvider>()
                                                   .setColor(value);
+                                              setTextColor();
                                             },
                                           ),
                                         ),
@@ -382,6 +495,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                           context.read<EraserProvider>().setIsErasing(false);
                           context.read<PenProvider>().setIsPennig(false);
                           context.read<TextProvider>().setIsTexting(false);
+                          context.read<HandProvider>().setIsHanding(false);
 
                           await showModalBottomSheet(
                             useSafeArea: true,
@@ -399,13 +513,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                             showDragHandle: true,
                             context: context,
                             builder: (context) {
-                              /*
-                              context
-                                  .read<EraserProvider>()
-                                  .setIsErasing(false);
-                              context.read<PenProvider>().setIsPennig(false);
-                              context.read<TextProvider>().setIsTexting(false);*/
-
                               return Container(
                                 color: Colors.green,
                                 width: MediaQuery.of(context).size.width * 0.5,
@@ -434,6 +541,18 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                                     i++)
                                                   GestureDetector(
                                                     onTap: () {
+                                                      Map map = context
+                                                          .read<ShapeProvier>()
+                                                          .shapeList[i];
+                                                      // map to list
+                                                      List list =
+                                                          map.values.toList();
+                                                      print(list);
+                                                      // get the factory
+                                                      final factory = list[0];
+                                                      print(factory);
+                                                      selectShape(
+                                                          factory.toString());
                                                       context
                                                           .read<ShapeProvier>()
                                                           .setShapeIndex(i);
@@ -499,6 +618,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                                   .read<ShapeProvier>()
                                                   .setStrokeWidth(
                                                       value.toInt());
+                                              setShapeFactoryPaint(
+                                                  (controller.shapePaint ??
+                                                          shapePaint)
+                                                      .copyWith(
+                                                strokeWidth: value,
+                                              ));
                                             },
                                           ),
                                         ),
@@ -526,6 +651,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                               context
                                                   .read<ShapeProvier>()
                                                   .setColor(value);
+                                              setShapeFactoryPaint(
+                                                  (controller.shapePaint ??
+                                                          shapePaint)
+                                                      .copyWith(
+                                                color: context
+                                                    .read<ShapeProvier>()
+                                                    .colorCalculated,
+                                              ));
                                             },
                                           ),
                                         ),
@@ -548,6 +681,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                               context
                                                   .read<ShapeProvier>()
                                                   .setFillShape(value);
+                                              setShapeFactoryPaint(
+                                                  (controller.shapePaint ??
+                                                          shapePaint)
+                                                      .copyWith(
+                                                style: value
+                                                    ? PaintingStyle.fill
+                                                    : PaintingStyle.stroke,
+                                              ));
                                             },
                                           ),
                                         )),
@@ -572,7 +713,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-              Expanded(child: Container()),
+              Expanded(
+                  child: Container(
+                color: Colors.purple,
+                child: FlutterPainter(
+                  controller: controller,
+                ),
+              )),
             ],
           ),
           AnimatedBuilder(
@@ -621,5 +768,122 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         ],
       ),
     );
+  }
+
+  /// Updates UI when the focus changes
+  void onFocus() {
+    setState(() {});
+  }
+
+  void undo() {
+    controller.undo();
+  }
+
+  void redo() {
+    controller.redo();
+  }
+
+  void toggleFreeStyleDraw() {
+    // stop using shape
+    controller.shapeFactory = null;
+    controller.freeStyleMode = FreeStyleMode.draw;
+  }
+
+  void toggleFreeStyleErase() {
+    controller.shapeFactory = null;
+
+    controller.freeStyleMode = FreeStyleMode.erase;
+  }
+
+  void addText() {
+    controller.shapeFactory = null;
+
+    if (controller.freeStyleMode != FreeStyleMode.none) {
+      controller.freeStyleMode = FreeStyleMode.none;
+    }
+    controller.addText();
+  }
+
+  void setFreeStyleStrokeWidth(double value) {
+    controller.freeStyleStrokeWidth = value;
+  }
+
+  void setFreeStyleColor(Color color) {
+    controller.freeStyleColor = color;
+  }
+
+  void setTextFontSize(double size) {
+    // Set state is just to update the current UI, the [FlutterPainter] UI updates without it
+    setState(() {
+      controller.textSettings = controller.textSettings.copyWith(
+          textStyle:
+              controller.textSettings.textStyle.copyWith(fontSize: size));
+    });
+  }
+
+  void setTextColor() {
+    controller.textStyle = controller.textStyle
+        .copyWith(color: context.read<TextProvider>().colorCalculated);
+  }
+
+  void selectShape(String shape) {
+    ShapeFactory? factory;
+    if (shape == "Line") {
+      factory = LineFactory();
+    } else if (shape == "Arrow") {
+      factory = ArrowFactory();
+    } else if (shape == "Double Arrow") {
+      factory = DoubleArrowFactory();
+    } else if (shape == "Rectangle") {
+      factory = RectangleFactory();
+    } else if (shape == "Oval") {
+      factory = OvalFactory();
+    } else {
+      factory = LineFactory();
+    }
+    controller.shapeFactory = factory;
+  }
+
+  void setShapeFactoryPaint(Paint paint) {
+    // Set state is just to update the current UI, the [FlutterPainter] UI updates without it
+    setState(() {
+      controller.shapePaint = paint;
+    });
+  }
+
+  void removeSelectedDrawable() {
+    final selectedDrawable = controller.selectedObjectDrawable;
+    if (selectedDrawable != null) controller.removeDrawable(selectedDrawable);
+  }
+
+  void useHand() {
+    controller.shapeFactory = null;
+    controller.freeStyleMode = FreeStyleMode.none;
+  }
+
+  void renderImage() async {
+    ui.Image img = await controller.renderImage(
+      Size(1080, 1080),
+    );
+    // final file = File('${(await getTemporaryDirectory()).path}/img.png');
+    // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+    Uint8List? bytes = await img.pngBytes;
+
+    final file = File('${(await getTemporaryDirectory()).path}/img.png');
+    await file.writeAsBytes(bytes!);
+
+    print(file.path);
+
+    print(file.length());
+
+    showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+              content: Container(
+                height: 100,
+                width: 100,
+                child: Image.memory(bytes!),
+              ),
+            ));
   }
 }
