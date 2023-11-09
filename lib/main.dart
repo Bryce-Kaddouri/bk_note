@@ -1,5 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:bk_note/provider/auth_provider.dart';
+import 'package:bk_note/provider/grid_provider.dart';
+import 'package:bk_note/screens/auth_screen.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:bk_note/provider/eraser_provider.dart';
@@ -10,6 +13,9 @@ import 'package:bk_note/provider/text_provider.dart';
 import 'package:bk_note/provider/un_or_re_do_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/route_manager.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_painter_v2/flutter_painter.dart';
@@ -17,8 +23,10 @@ import 'package:flutter_painter_v2/flutter_painter_extensions.dart';
 import 'package:flutter_painter_v2/flutter_painter_pure.dart';
 import 'dart:ui' as ui;
 import 'package:path_provider/path_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // orientation landscape mode
   SystemChrome.setPreferredOrientations([
@@ -27,6 +35,11 @@ void main() {
   ]);
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(
     MultiProvider(
       providers: [
@@ -36,25 +49,46 @@ void main() {
         ChangeNotifierProvider(create: (_) => ShapeProvier()),
         ChangeNotifierProvider(create: (_) => UnOrReDoProvider()),
         ChangeNotifierProvider(create: (_) => HandProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => GridProvider()),
       ],
       child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance!.addPostFrameCallback((_) {
+      context.read<AuthProvider>().getCurentUser();
+      print(context.read<AuthProvider>().user);
+    });
+/*
+    context.read<AuthProvider>().getCurentUser();
+*/
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: context.watch<AuthProvider>().user == null
+          ? AuthScreen()
+          : const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
@@ -161,6 +195,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           Row(
@@ -181,6 +216,36 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   child: ListView(
                     children: [
                       const SizedBox(height: 40),
+                      IconButton(
+                        onPressed: () {
+                          Get.dialog(
+                            AlertDialog(
+                              title: Text('Are you sure?'),
+                              content: Text('Do you want to logout?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Get.back();
+                                  },
+                                  child: Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    context.read<AuthProvider>().logout();
+                                    Get.back();
+                                  },
+                                  child: Text('Logout'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ),
                       IconButton(
                         onPressed: () {
                           if (controller.canRedo) {
@@ -738,6 +803,20 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                           size: 30,
                         ),
                       ),
+                      IconButton(
+                        onPressed: () {
+                          context
+                              .read<GridProvider>()
+                              .setGrid(!context.read<GridProvider>().isGrid);
+                        },
+                        icon: Icon(
+                          Icons.grid_3x3_sharp,
+                          color: context.watch<GridProvider>().isGrid
+                              ? Colors.grey
+                              : Colors.white,
+                          size: 30,
+                        ),
+                      )
                     ],
                   ),
                 ),
@@ -746,26 +825,32 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   child: Container(
                 child: Stack(
                   children: [
-                    Positioned(
-                      child: Container(
-                        height: MediaQuery.of(context).size.height,
-                        width: MediaQuery.of(context).size.width - 80,
-                        child: Column(
-                          children: [
-                            for (int i = 50;
-                                i < MediaQuery.of(context).size.width;
-                                i += 50)
-                              Line(
-                                y: i,
-                                x: -MediaQuery.of(context).size.height.toInt() +
-                                    30,
-                                isSideBarOpen: sidebarOpen,
-                              ),
-                          ],
+                    Visibility(
+                      visible: context.watch<GridProvider>().isGrid,
+                      child: Positioned(
+                        child: Container(
+                          height: MediaQuery.of(context).size.height,
+                          width: MediaQuery.of(context).size.width - 80,
+                          child: Column(
+                            children: [
+                              for (int i = 50;
+                                  i < MediaQuery.of(context).size.width;
+                                  i += 50)
+                                Line(
+                                  y: i,
+                                  x: -MediaQuery.of(context)
+                                          .size
+                                          .height
+                                          .toInt() +
+                                      30,
+                                  isSideBarOpen: sidebarOpen,
+                                ),
+                            ],
+                          ),
                         ),
+                        left: 0,
+                        top: 0,
                       ),
-                      left: 0,
-                      top: 0,
                     ),
                     FlutterPainter(
                       controller: controller,
