@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class ShapeProvier with ChangeNotifier {
@@ -42,7 +43,7 @@ class ShapeProvier with ChangeNotifier {
     notifyListeners();
   }
 
-  int _shapeIndex = 0;
+  int _shapeIndex = -1;
   int get shapeIndex => _shapeIndex;
 
   void setShapeIndex(int shapeIndex) {
@@ -50,29 +51,29 @@ class ShapeProvier with ChangeNotifier {
     notifyListeners();
   }
 
-  final List<Map<String, dynamic>> _shapeList = [
+  final List<Map<dynamic, dynamic>> _shapeList = [
     {
-      'name': 'Line',
+      LineFactory(): 'Line',
       'icon': PhosphorIconsRegular.lineSegment,
     },
     {
-      'name': 'Arrow',
+      ArrowFactory(): 'Arrow',
       'icon': PhosphorIconsRegular.arrowUpRight,
     },
     {
-      'name': 'Double Arrow',
+      DoubleArrowFactory(): 'Double Arrow',
       'icon': PhosphorIconsRegular.arrowsHorizontal,
     },
     {
-      'name': 'Rectangle',
+      RectangleFactory(): 'Rectangle',
       'icon': PhosphorIconsRegular.rectangle,
     },
     {
-      'name': 'oval',
+      OvalFactory(): 'Oval',
       'icon': PhosphorIconsRegular.circle,
     }
   ];
-  List<Map<String, dynamic>> get shapeList => _shapeList;
+  List<Map<dynamic, dynamic>> get shapeList => _shapeList;
 
   bool _isShaping = false;
   bool get isShaping => _isShaping;
