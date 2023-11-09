@@ -1,3 +1,4 @@
+import 'package:bk_note/main.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/route_manager.dart';
@@ -39,6 +40,8 @@ class AuthProvider with ChangeNotifier {
           await AuthRepository.instance.login(email, password);
       _user = userCredential.user;
       notifyListeners();
+      Navigator.pushReplacement(Get.context!,
+          MaterialPageRoute(builder: (context) => const MyHomePage()));
       Get.snackbar(
         'Success',
         "Login Successful",
