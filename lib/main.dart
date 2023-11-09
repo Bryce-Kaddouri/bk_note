@@ -70,6 +70,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late AnimationController _controller;
+  double _progress = 0.0;
+  late Animation<double> animation;
   bool sidebarOpen = true;
   String selectedShape = '';
   String action = '';
@@ -85,6 +87,19 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    var controllerAnimationLine = AnimationController(
+        duration: Duration(milliseconds: 3000), vsync: this);
+
+    animation = Tween(begin: 1.0, end: 0.0).animate(controllerAnimationLine)
+      ..addListener(() {
+        setState(() {
+          _progress = animation.value;
+        });
+      });
+
+    controllerAnimationLine.forward();
+
     _controller = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -126,6 +141,20 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       if (controller.shapePaint == null) {
         context.read<ShapeProvier>().setShapeIndex(-1);
       }
+    });
+    WidgetsBinding.instance!.addPostFrameCallback((_) {
+      controller.freeStyleColor = context.read<PenProvider>().colorCalculated;
+      controller.freeStyleStrokeWidth = context.read<PenProvider>().strokeWidth;
+      controller.textStyle = controller.textStyle.copyWith(
+          color: context.read<TextProvider>().colorCalculated,
+          fontSize: context.read<TextProvider>().fontSize.toDouble());
+      controller.shapePaint = controller.shapePaint?.copyWith(
+        color: context.read<ShapeProvier>().colorCalculated,
+        strokeWidth: context.read<ShapeProvier>().strokeWidth.toDouble(),
+        style: context.read<ShapeProvier>().fillShape
+            ? PaintingStyle.fill
+            : PaintingStyle.stroke,
+      );
     });
   }
 
@@ -715,9 +744,34 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               ),
               Expanded(
                   child: Container(
-                color: Colors.purple,
-                child: FlutterPainter(
-                  controller: controller,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      child: Container(
+                        height: MediaQuery.of(context).size.height,
+                        width: MediaQuery.of(context).size.width - 80,
+                        child: Column(
+                          children: [
+                            for (int i = 50;
+                                i < MediaQuery.of(context).size.width;
+                                i += 50)
+                              Line(
+                                  y: i,
+                                  x: -MediaQuery.of(context)
+                                          .size
+                                          .height
+                                          .toInt() +
+                                      30),
+                          ],
+                        ),
+                      ),
+                      left: 0,
+                      top: 0,
+                    ),
+                    FlutterPainter(
+                      controller: controller,
+                    ),
+                  ],
                 ),
               )),
             ],
@@ -885,5 +939,75 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                 child: Image.memory(bytes!),
               ),
             ));
+  }
+}
+
+class Line extends StatefulWidget {
+  int y;
+  int x;
+
+  Line({
+    required this.y,
+    required this.x,
+  });
+
+  @override
+  State<StatefulWidget> createState() => _LineState();
+}
+
+class _LineState extends State<Line> with SingleTickerProviderStateMixin {
+  double _progress = 0.0;
+  late Animation<double> animation;
+
+  @override
+  void initState() {
+    super.initState();
+    var controller =
+        AnimationController(duration: Duration(milliseconds: 500), vsync: this);
+    WidgetsBinding.instance!.addPostFrameCallback((_) {
+      double widthScreen = MediaQuery.of(context).size.height.toDouble() - 30;
+
+      animation = Tween(begin: 0.0, end: widthScreen).animate(controller)
+        ..addListener(() {
+          print(animation.value);
+          setState(() {
+            _progress = animation.value;
+          });
+        });
+
+      controller.forward();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: LinePainter(_progress, widget.y, widget.x));
+  }
+}
+
+class LinePainter extends CustomPainter {
+  late Paint _paint;
+  double _progress;
+  int y;
+  int x;
+
+  LinePainter(this._progress, this.y, this.x) {
+    _paint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    print('y: $y');
+    print('x: $x');
+    canvas.drawLine(Offset(x.toDouble(), y.toDouble()),
+        Offset(_progress, y.toDouble()), _paint);
+  }
+
+  @override
+  bool shouldRepaint(LinePainter oldDelegate) {
+    return oldDelegate._progress != _progress;
   }
 }
