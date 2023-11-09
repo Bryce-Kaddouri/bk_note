@@ -4,6 +4,8 @@ import 'package:bk_note/provider/auth_provider.dart';
 import 'package:bk_note/provider/grid_provider.dart';
 import 'package:bk_note/provider/storage_provider.dart';
 import 'package:bk_note/screens/auth_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:bk_note/provider/eraser_provider.dart';
@@ -124,6 +126,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round;
   AnimationController? _controllerAnimationUpload;
+  PageController pageController = PageController();
 
   @override
   void initState() {
@@ -199,6 +202,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             ? PaintingStyle.fill
             : PaintingStyle.stroke,
       );
+      print('page');
+      print(pageController.page);
     });
   }
 
@@ -832,42 +837,116 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                 ),
               ),
               Expanded(
-                  child: Container(
-                child: Stack(
-                  children: [
-                    Visibility(
-                      visible: context.watch<GridProvider>().isGrid,
-                      child: Positioned(
-                        child: Container(
-                          height: MediaQuery.of(context).size.height,
-                          width: MediaQuery.of(context).size.width - 80,
-                          child: Column(
-                            children: [
-                              for (int i = 50;
-                                  i < MediaQuery.of(context).size.width;
-                                  i += 50)
-                                Line(
-                                  y: i,
-                                  x: -MediaQuery.of(context)
-                                          .size
-                                          .height
-                                          .toInt() +
-                                      30,
-                                  isSideBarOpen: sidebarOpen,
-                                ),
-                            ],
-                          ),
-                        ),
-                        left: 0,
-                        top: 0,
-                      ),
-                    ),
-                    FlutterPainter(
-                      controller: controller,
-                    ),
-                  ],
+                child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: context
+                      .read<StorageProvider>()
+                      .getAllImage(context.watch<AuthProvider>().user!.uid),
+                  builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
+                    switch (snapshot.connectionState) {
+                      case ConnectionState.waiting:
+                        return Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      default:
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Something went wrong'),
+                          );
+                        } else {
+                          if (snapshot.hasData) {
+                            print(snapshot.data!.data());
+                            List list = snapshot.data!.get('images');
+                            pageController = PageController(
+                                initialPage: list.length, keepPage: true);
+                            print(list);
+                            return PageView.builder(
+                              controller: pageController,
+                              itemCount: list.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index >= list.length) {
+                                  return // start canvas
+                                      Container(
+                                    child: Stack(
+                                      children: [
+                                        Visibility(
+                                          visible: context
+                                              .watch<GridProvider>()
+                                              .isGrid,
+                                          child: Positioned(
+                                            child: Container(
+                                              height: MediaQuery.of(context)
+                                                  .size
+                                                  .height,
+                                              width: MediaQuery.of(context)
+                                                      .size
+                                                      .width -
+                                                  80,
+                                              child: Column(
+                                                children: [
+                                                  for (int i = 50;
+                                                      i <
+                                                          MediaQuery.of(context)
+                                                              .size
+                                                              .width;
+                                                      i += 50)
+                                                    Line(
+                                                      y: i,
+                                                      x: -MediaQuery.of(context)
+                                                              .size
+                                                              .height
+                                                              .toInt() +
+                                                          30,
+                                                      isSideBarOpen:
+                                                          sidebarOpen,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            left: 0,
+                                            top: 0,
+                                          ),
+                                        ),
+                                        FlutterPainter(
+                                          controller: controller,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  // end cqanva
+                                } else {
+                                  return Container(
+                                    child: Image.network(
+                                      list[index]['url'],
+                                      fit: BoxFit.cover,
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+
+                            /*return PageView(
+                              physics: NeverScrollableScrollPhysics(),
+                              controller: pageController,
+                              children: [
+                                for (int i = 0; i < list.length; i++)
+                                  Container(
+                                    child: Image.network(
+                                      list[i]['url'],
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                              ],
+                            );*/
+                          } else {
+                            return Center(child: CircularProgressIndicator());
+                          }
+                        }
+                    }
+                  },
                 ),
-              )),
+
+                // end of the canvas
+              ),
             ],
           ),
           AnimatedBuilder(
@@ -1041,6 +1120,22 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               double progress = (snapshot.data!.bytesTransferred /
                       snapshot.data!.totalBytes) *
                   100;
+
+              if (snapshot.data!.state == TaskState.success) {
+                // get url and save to firestore
+                print(snapshot.data!.ref.name);
+                snapshot.data!.ref.getDownloadURL().then((value) {
+                  print(value);
+                  context.read<StorageProvider>().addImageUrl(
+                      value,
+                      context.read<AuthProvider>().user!.uid,
+                      snapshot.data!.ref.name);
+                });
+                controller.clearDrawables();
+
+                Get.back();
+              }
+
               print('progress');
               print(progress);
               if (progress == 100) {

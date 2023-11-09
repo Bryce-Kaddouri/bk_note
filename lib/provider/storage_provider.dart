@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -31,6 +32,14 @@ class StorageProvider with ChangeNotifier {
     }
   }
 
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getAllImage(String userId) {
+    try {
+      return StorageRepository.instance.getAllImages(userId);
+    } catch (e) {
+      throw e;
+    }
+  }
+
   void setProgress(double progress) {
     _progress = progress;
     notifyListeners();
@@ -39,5 +48,13 @@ class StorageProvider with ChangeNotifier {
   void clearProgress() {
     _progress = 0;
     notifyListeners();
+  }
+
+  void addImageUrl(String url, String userId, String imageId) async {
+    try {
+      await FirestoreRepository.instance.addImageUrl(url, userId, imageId);
+    } catch (e) {
+      throw e;
+    }
   }
 }

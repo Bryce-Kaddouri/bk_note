@@ -1,5 +1,6 @@
 // import firebase storgae
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'auth_repository.dart';
 
@@ -25,6 +26,20 @@ class StorageRepository {
       Reference reference = _storage.ref().child('images/$userId/$fileName');
       UploadTask uploadTask = reference.putFile(file);
       return uploadTask.snapshotEvents;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  // method to stream the images url
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getAllImages(String userId) {
+    try {
+      Stream<DocumentSnapshot<Map<String, dynamic>>> documentSnapshot =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .snapshots();
+      return documentSnapshot;
     } catch (e) {
       throw e;
     }
