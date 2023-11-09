@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:bk_note/provider/auth_provider.dart';
 import 'package:bk_note/provider/grid_provider.dart';
+import 'package:bk_note/provider/storage_provider.dart';
 import 'package:bk_note/screens/auth_screen.dart';
 import 'package:flutter/foundation.dart';
 
@@ -13,8 +14,11 @@ import 'package:bk_note/provider/text_provider.dart';
 import 'package:bk_note/provider/un_or_re_do_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/get_rx/src/rx_types/rx_types.dart';
+import 'package:get/get_state_manager/src/simple/get_controllers.dart';
 import 'package:get/route_manager.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
@@ -51,6 +55,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => HandProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => GridProvider()),
+        ChangeNotifierProvider(create: (_) => StorageProvider()),
       ],
       child: const MyApp(),
     ),
@@ -68,6 +73,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance!.addPostFrameCallback((_) {
       context.read<AuthProvider>().getCurentUser();
       print(context.read<AuthProvider>().user);
@@ -76,6 +82,8 @@ class _MyAppState extends State<MyApp> {
     context.read<AuthProvider>().getCurentUser();
 */
   }
+
+  bool isDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -88,15 +96,13 @@ class _MyAppState extends State<MyApp> {
       ),
       home: context.watch<AuthProvider>().user == null
           ? AuthScreen()
-          : const MyHomePage(title: 'Flutter Demo Home Page'),
+          : MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -117,10 +123,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     ..color = Colors.red
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round;
+  AnimationController? _controllerAnimationUpload;
 
   @override
   void initState() {
     super.initState();
+
+    _controllerAnimationUpload = AnimationController(
+        duration: Duration(milliseconds: 3000), vsync: this);
 
     var controllerAnimationLine = AnimationController(
         duration: Duration(milliseconds: 3000), vsync: this);
@@ -1001,7 +1011,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void renderImage() async {
     ui.Image img = await controller.renderImage(
-      Size(1080, 1080),
+      Size(1920, 1080),
     );
     // final file = File('${(await getTemporaryDirectory()).path}/img.png');
     // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
@@ -1009,20 +1019,84 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
     final file = File('${(await getTemporaryDirectory()).path}/img.png');
     await file.writeAsBytes(bytes!);
+    String userId = context.read<AuthProvider>().user!.uid;
+
+    Get.snackbar(
+      'Uploading',
+      '',
+      margin: EdgeInsets.all(10),
+      borderRadius: 10,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.blue,
+      colorText: Colors.white,
+      shouldIconPulse: true,
+      showProgressIndicator: false,
+      isDismissible: false,
+      messageText: null,
+      titleText: StreamBuilder(
+          stream: context.read<StorageProvider>().uploadImage(file, userId),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              print(snapshot.data!.bytesTransferred);
+              double progress = (snapshot.data!.bytesTransferred /
+                      snapshot.data!.totalBytes) *
+                  100;
+              print('progress');
+              print(progress);
+              if (progress == 100) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '100%',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    SizedBox(width: 10),
+                    Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                  ],
+                );
+              } else {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${progress.toInt()}%',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    SizedBox(width: 10),
+                    CircularProgressIndicator(
+                      backgroundColor: Colors.white,
+                      value: progress / 100,
+                      color: Colors.red,
+                    ),
+                  ],
+                );
+              }
+            } else {
+              return Row(
+                children: [
+                  Text(
+                    '0%',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  SizedBox(width: 10),
+                  CircularProgressIndicator(
+                    value: 0,
+                    color: Colors.white,
+                  ),
+                ],
+              );
+            }
+          }),
+    );
 
     print(file.path);
 
     print(file.length());
-
-    showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-              content: Container(
-                height: 100,
-                width: 100,
-                child: Image.memory(bytes!),
-              ),
-            ));
   }
 }
 

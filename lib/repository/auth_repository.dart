@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'firestore_repository.dart';
 
 class AuthRepository {
   // private constructor
@@ -11,6 +12,9 @@ class AuthRepository {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   FirebaseAuth get auth => _auth;
 
+  // instance of FirestoreRepository
+  final FirestoreRepository _firestoreRepository = FirestoreRepository.instance;
+
   // signup method
   Future<UserCredential> signUp(String email, String password) async {
     try {
@@ -18,6 +22,9 @@ class AuthRepository {
           await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
+      );
+      await _firestoreRepository.initImages(
+        userCredential.user!.uid,
       );
       return userCredential;
     } on FirebaseAuthException catch (e) {
