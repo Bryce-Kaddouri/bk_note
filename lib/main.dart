@@ -756,12 +756,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                 i < MediaQuery.of(context).size.width;
                                 i += 50)
                               Line(
-                                  y: i,
-                                  x: -MediaQuery.of(context)
-                                          .size
-                                          .height
-                                          .toInt() +
-                                      30),
+                                y: i,
+                                x: -MediaQuery.of(context).size.height.toInt() +
+                                    30,
+                                isSideBarOpen: sidebarOpen,
+                              ),
                           ],
                         ),
                       ),
@@ -945,10 +944,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 class Line extends StatefulWidget {
   int y;
   int x;
+  bool isSideBarOpen;
 
   Line({
     required this.y,
     required this.x,
+    required this.isSideBarOpen,
   });
 
   @override
@@ -965,9 +966,13 @@ class _LineState extends State<Line> with SingleTickerProviderStateMixin {
     var controller =
         AnimationController(duration: Duration(milliseconds: 500), vsync: this);
     WidgetsBinding.instance!.addPostFrameCallback((_) {
-      double widthScreen = MediaQuery.of(context).size.height.toDouble() - 30;
+      double widthScreen = MediaQuery.of(context).size.width.toDouble() - 100;
+      double halfWidth = widthScreen / 2;
+      print('half width: $halfWidth');
+      print(
+          'resolution : ${MediaQuery.of(context).size.width} x ${MediaQuery.of(context).size.height}');
 
-      animation = Tween(begin: 0.0, end: widthScreen).animate(controller)
+      animation = Tween(begin: 0.0, end: halfWidth).animate(controller)
         ..addListener(() {
           print(animation.value);
           setState(() {
@@ -981,7 +986,15 @@ class _LineState extends State<Line> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: LinePainter(_progress, widget.y, widget.x));
+    return CustomPaint(
+        painter: LinePainter(
+            _progress,
+            widget.y,
+            widget.isSideBarOpen
+                ? (((MediaQuery.of(context).size.width - 100) / 2) * -1).toInt()
+                : (((MediaQuery.of(context).size.width - 100) / 2) * -1)
+                    .toInt(),
+            widget.isSideBarOpen));
   }
 }
 
@@ -990,8 +1003,9 @@ class LinePainter extends CustomPainter {
   double _progress;
   int y;
   int x;
+  bool isSideBarOpen;
 
-  LinePainter(this._progress, this.y, this.x) {
+  LinePainter(this._progress, this.y, this.x, this.isSideBarOpen) {
     _paint = Paint()
       ..color = Colors.black
       ..strokeWidth = 1.0
@@ -1002,8 +1016,11 @@ class LinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     print('y: $y');
     print('x: $x');
-    canvas.drawLine(Offset(x.toDouble(), y.toDouble()),
-        Offset(_progress, y.toDouble()), _paint);
+    print('size: ${size.width}');
+    canvas.drawLine(
+        Offset(x.toDouble(), y.toDouble()),
+        Offset(isSideBarOpen ? _progress : _progress + 60, y.toDouble()),
+        _paint);
   }
 
   @override
