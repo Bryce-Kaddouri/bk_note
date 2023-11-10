@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:bk_note/provider/auth_provider.dart';
 import 'package:bk_note/provider/grid_provider.dart';
+import 'package:bk_note/provider/sarch_provider.dart';
 import 'package:bk_note/provider/storage_provider.dart';
 import 'package:bk_note/screens/auth_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -58,6 +59,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => GridProvider()),
         ChangeNotifierProvider(create: (_) => StorageProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
       ],
       child: const MyApp(),
     ),
@@ -242,625 +244,690 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                 width: sidebarOpen ? 80 : 20,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
                 ),
                 child: Visibility(
                   visible: sidebarOpen,
-                  child: ListView(
-                    children: [
-                      const SizedBox(height: 40),
-                      IconButton(
-                        onPressed: () {
-                          Get.dialog(
-                            AlertDialog(
-                              title: Text('Are you sure?'),
-                              content: Text('Do you want to logout?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Get.back();
-                                  },
-                                  child: Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    context.read<AuthProvider>().logout();
-                                    Get.back();
-                                  },
-                                  child: Text('Logout'),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        icon: Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 30,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: ListView(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            Get.dialog(
+                              AlertDialog(
+                                title: Text('Are you sure?'),
+                                content: Text('Do you want to logout?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Get.back();
+                                    },
+                                    child: Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      context.read<AuthProvider>().logout();
+                                      Get.back();
+                                    },
+                                    child: Text('Logout'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          if (controller.canRedo) {
-                            redo();
-                          } else {
-                            return;
-                          }
-                        },
-                        icon: Icon(
-                          Icons.redo,
-                          color: context.watch<UnOrReDoProvider>().canRedo
-                              ? Colors.white
-                              : Colors.grey,
-                          size: 30,
+                        IconButton(
+                          onPressed: () {
+                            context.read<SearchProvider>().setSearch(
+                                !context.read<SearchProvider>().isSearch);
+                          },
+                          icon: Icon(
+                            Icons.search,
+                            color: context.read<SearchProvider>().isSearch
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          if (controller.canUndo) {
-                            undo();
-                          } else {
-                            return;
-                          }
-                        },
-                        icon: Icon(
-                          Icons.undo,
-                          color: context.watch<UnOrReDoProvider>().canUndo
-                              ? Colors.white
-                              : Colors.grey,
-                          size: 30,
+                        IconButton(
+                          onPressed: () {
+                            if (controller.canRedo) {
+                              redo();
+                            } else {
+                              return;
+                            }
+                          },
+                          icon: Icon(
+                            Icons.redo,
+                            color: context.watch<UnOrReDoProvider>().canRedo
+                                ? Colors.white
+                                : Colors.grey,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          removeSelectedDrawable();
-                        },
-                        icon: Icon(
-                          Icons.delete,
-                          color: Colors.white,
-                          size: 30,
+                        IconButton(
+                          onPressed: () {
+                            if (controller.canUndo) {
+                              undo();
+                            } else {
+                              return;
+                            }
+                          },
+                          icon: Icon(
+                            Icons.undo,
+                            color: context.watch<UnOrReDoProvider>().canUndo
+                                ? Colors.white
+                                : Colors.grey,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          renderImage();
-                        },
-                        icon: Icon(
-                          Icons.save,
-                          color: Colors.white,
-                          size: 30,
+                        IconButton(
+                          onPressed: () {
+                            removeSelectedDrawable();
+                          },
+                          icon: Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          useHand();
-                          context.read<HandProvider>().setIsHanding(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                        },
-                        icon: Icon(
-                          // icon to move the canvas
-                          PhosphorIconsFill.hand,
-                          color: context.watch<HandProvider>().isHanding
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
+                        IconButton(
+                          onPressed: () {
+                            renderImage();
+                          },
+                          icon: Icon(
+                            Icons.save,
+                            color: Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
+                        IconButton(
+                          onPressed: () {
+                            useHand();
+                            context.read<HandProvider>().setIsHanding(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                          },
+                          icon: Icon(
+                            // icon to move the canvas
+                            PhosphorIconsFill.hand,
+                            color: context.watch<HandProvider>().isHanding
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
 
-                      // eraser icon
-                      IconButton(
-                        onPressed: () async {
-                          toggleFreeStyleErase();
-                          context.read<EraserProvider>().setIsErasing(true);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                          context.read<HandProvider>().setIsHanding(false);
+                        // eraser icon
+                        IconButton(
+                          onPressed: () async {
+                            toggleFreeStyleErase();
+                            context.read<EraserProvider>().setIsErasing(true);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                            context.read<HandProvider>().setIsHanding(false);
 
-                          await showModalBottomSheet(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxHeight: 120,
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                            ),
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.red,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                height: 100,
-                                child: Row(
-                                  children: [
-                                    SizedBox(width: 20),
-                                    Text('Stroke Width'),
-                                    Expanded(
-                                      child: Slider(
-                                        value: context
-                                            .watch<EraserProvider>()
-                                            .strokeWidth,
-                                        min: 1,
-                                        max: 100,
-                                        divisions: 5,
-                                        label: context
-                                            .watch<EraserProvider>()
-                                            .strokeWidth
-                                            .toString(),
-                                        onChanged: (double value) {
-                                          context
-                                              .read<EraserProvider>()
-                                              .setStrokeWidth(value);
-                                          setFreeStyleStrokeWidth(value);
-                                        },
+                            await showModalBottomSheet(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxHeight: 120,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                              ),
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  height: 100,
+                                  child: Row(
+                                    children: [
+                                      SizedBox(width: 20),
+                                      Text('Stroke Width'),
+                                      Expanded(
+                                        child: Slider(
+                                          value: context
+                                              .watch<EraserProvider>()
+                                              .strokeWidth,
+                                          min: 1,
+                                          max: 100,
+                                          divisions: 5,
+                                          label: context
+                                              .watch<EraserProvider>()
+                                              .strokeWidth
+                                              .toString(),
+                                          onChanged: (double value) {
+                                            context
+                                                .read<EraserProvider>()
+                                                .setStrokeWidth(value);
+                                            setFreeStyleStrokeWidth(value);
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(width: 20),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          PhosphorIconsFill.eraser,
-                          color: context.watch<EraserProvider>().isErasing
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
+                                      SizedBox(width: 20),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            PhosphorIconsFill.eraser,
+                            color: context.watch<EraserProvider>().isErasing
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () async {
-                          toggleFreeStyleDraw();
-                          context.read<PenProvider>().setIsPennig(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                          context.read<HandProvider>().setIsHanding(false);
+                        IconButton(
+                          onPressed: () async {
+                            toggleFreeStyleDraw();
+                            context.read<PenProvider>().setIsPennig(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                            context.read<HandProvider>().setIsHanding(false);
 
-                          await showModalBottomSheet(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxHeight: 150,
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                            ),
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.blue,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Stroke Width'),
-                                        Expanded(
-                                          child: Slider(
-                                            value: context
-                                                .watch<PenProvider>()
-                                                .strokeWidth,
-                                            min: 1,
-                                            max: 100,
-                                            divisions: 10,
-                                            label: context
-                                                .watch<PenProvider>()
-                                                .strokeWidth
-                                                .toString(),
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<PenProvider>()
-                                                  .setStrokeWidth(value);
-                                              setFreeStyleStrokeWidth(value);
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Color'),
-                                        Expanded(
-                                          child: Slider(
-                                            activeColor: context
-                                                .watch<PenProvider>()
-                                                .colorCalculated,
-                                            thumbColor: context
-                                                .watch<PenProvider>()
-                                                .colorCalculated,
-                                            value: context
-                                                .watch<PenProvider>()
-                                                .color,
-                                            min: 0,
-                                            max: 16777215,
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<PenProvider>()
-                                                  .setColor(value);
-                                              setFreeStyleColor(context
-                                                  .read<PenProvider>()
-                                                  .colorCalculated);
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          Icons.edit,
-                          color: context.watch<PenProvider>().isPennig
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      // Text icon
-                      IconButton(
-                        onPressed: () async {
-                          addText();
-                          setTextFontSize(
-                              context.read<TextProvider>().fontSize.toDouble());
-                          setTextColor();
-                          context.read<TextProvider>().setIsTexting(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                          context.read<HandProvider>().setIsHanding(false);
-
-                          await showModalBottomSheet(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxHeight: 150,
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                            ),
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.blue,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Font Size'),
-                                        Expanded(
-                                          child: Slider(
-                                            value: context
-                                                .watch<TextProvider>()
-                                                .fontSize
-                                                .toDouble(),
-                                            min: 1,
-                                            max: 100,
-                                            divisions: 10,
-                                            label: context
-                                                .watch<TextProvider>()
-                                                .fontSize
-                                                .toString(),
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<TextProvider>()
-                                                  .setFontSize(value.toInt());
-                                              setTextFontSize(value);
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Color'),
-                                        Expanded(
-                                          child: Slider(
-                                            activeColor: context
-                                                .watch<TextProvider>()
-                                                .colorCalculated,
-                                            thumbColor: context
-                                                .watch<TextProvider>()
-                                                .colorCalculated,
-                                            value: context
-                                                .watch<TextProvider>()
-                                                .color,
-                                            min: 0,
-                                            max: 16777215,
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<TextProvider>()
-                                                  .setColor(value);
-                                              setTextColor();
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          PhosphorIconsBold.textT,
-                          color: context.watch<TextProvider>().isTexting
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      // icon shape
-                      IconButton(
-                        onPressed: () async {
-                          context.read<ShapeProvier>().setIsShaping(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<HandProvider>().setIsHanding(false);
-
-                          await showModalBottomSheet(
-                            useSafeArea: true,
-                            clipBehavior: Clip.antiAliasWithSaveLayer,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                              maxHeight: 400,
-                            ),
-                            isScrollControlled: true,
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.green,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Shapes'),
-                                        SizedBox(width: 20),
-                                        Expanded(
-                                          child: Container(
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.spaceEvenly,
-                                              children: [
-                                                for (int i = 0;
-                                                    i <
-                                                        context
-                                                            .read<
-                                                                ShapeProvier>()
-                                                            .shapeList
-                                                            .length;
-                                                    i++)
-                                                  GestureDetector(
-                                                    onTap: () {
-                                                      Map map = context
-                                                          .read<ShapeProvier>()
-                                                          .shapeList[i];
-                                                      // map to list
-                                                      List list =
-                                                          map.values.toList();
-                                                      print(list);
-                                                      // get the factory
-                                                      final factory = list[0];
-                                                      print(factory);
-                                                      selectShape(
-                                                          factory.toString());
-                                                      context
-                                                          .read<ShapeProvier>()
-                                                          .setShapeIndex(i);
-                                                    },
-                                                    child: Container(
-                                                      alignment:
-                                                          Alignment.center,
-                                                      height: 40,
-                                                      width: 40,
-                                                      decoration: BoxDecoration(
-                                                        shape:
-                                                            BoxShape.rectangle,
-                                                        border: Border.all(
-                                                          color: context
-                                                                      .watch<
-                                                                          ShapeProvier>()
-                                                                      .shapeIndex ==
-                                                                  i
-                                                              ? Colors.white
-                                                              : Colors
-                                                                  .transparent,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(10),
-                                                      ),
-                                                      child: Icon(
-                                                        context
-                                                            .read<
-                                                                ShapeProvier>()
-                                                            .shapeList[i]['icon'],
-                                                        color: Colors.white,
-                                                        size: 30,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
+                            await showModalBottomSheet(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxHeight: 150,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                              ),
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Colors.blue,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Stroke Width'),
+                                          Expanded(
+                                            child: Slider(
+                                              value: context
+                                                  .watch<PenProvider>()
+                                                  .strokeWidth,
+                                              min: 1,
+                                              max: 100,
+                                              divisions: 10,
+                                              label: context
+                                                  .watch<PenProvider>()
+                                                  .strokeWidth
+                                                  .toString(),
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<PenProvider>()
+                                                    .setStrokeWidth(value);
+                                                setFreeStyleStrokeWidth(value);
+                                              },
                                             ),
                                           ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Stroke Width'),
-                                        Expanded(
-                                          child: Slider(
-                                            value: context
-                                                .watch<ShapeProvier>()
-                                                .strokeWidth
-                                                .toDouble(),
-                                            min: 1,
-                                            max: 100,
-                                            divisions: 10,
-                                            label: context
-                                                .watch<ShapeProvier>()
-                                                .strokeWidth
-                                                .toString(),
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<ShapeProvier>()
-                                                  .setStrokeWidth(
-                                                      value.toInt());
-                                              setShapeFactoryPaint(
-                                                  (controller.shapePaint ??
-                                                          shapePaint)
-                                                      .copyWith(
-                                                strokeWidth: value,
-                                              ));
-                                            },
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Color'),
+                                          Expanded(
+                                            child: Slider(
+                                              activeColor: context
+                                                  .watch<PenProvider>()
+                                                  .colorCalculated,
+                                              thumbColor: context
+                                                  .watch<PenProvider>()
+                                                  .colorCalculated,
+                                              value: context
+                                                  .watch<PenProvider>()
+                                                  .color,
+                                              min: 0,
+                                              max: 16777215,
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<PenProvider>()
+                                                    .setColor(value);
+                                                setFreeStyleColor(context
+                                                    .read<PenProvider>()
+                                                    .colorCalculated);
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Color'),
-                                        Expanded(
-                                          child: Slider(
-                                            activeColor: context
-                                                .watch<ShapeProvier>()
-                                                .colorCalculated,
-                                            thumbColor: context
-                                                .watch<ShapeProvier>()
-                                                .colorCalculated,
-                                            value: context
-                                                .watch<ShapeProvier>()
-                                                .color,
-                                            min: 0,
-                                            max: 16777215,
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<ShapeProvier>()
-                                                  .setColor(value);
-                                              setShapeFactoryPaint(
-                                                  (controller.shapePaint ??
-                                                          shapePaint)
-                                                      .copyWith(
-                                                color: context
-                                                    .read<ShapeProvier>()
-                                                    .colorCalculated,
-                                              ));
-                                            },
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            Icons.edit,
+                            color: context.watch<PenProvider>().isPennig
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        // Text icon
+                        IconButton(
+                          onPressed: () async {
+                            addText();
+                            setTextFontSize(context
+                                .read<TextProvider>()
+                                .fontSize
+                                .toDouble());
+                            setTextColor();
+                            context.read<TextProvider>().setIsTexting(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                            context.read<HandProvider>().setIsHanding(false);
+
+                            await showModalBottomSheet(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxHeight: 150,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                              ),
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Colors.blue,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Font Size'),
+                                          Expanded(
+                                            child: Slider(
+                                              value: context
+                                                  .watch<TextProvider>()
+                                                  .fontSize
+                                                  .toDouble(),
+                                              min: 1,
+                                              max: 100,
+                                              divisions: 10,
+                                              label: context
+                                                  .watch<TextProvider>()
+                                                  .fontSize
+                                                  .toString(),
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<TextProvider>()
+                                                    .setFontSize(value.toInt());
+                                                setTextFontSize(value);
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Fill Shape'),
-                                        SizedBox(width: 20),
-                                        Expanded(
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Color'),
+                                          Expanded(
+                                            child: Slider(
+                                              activeColor: context
+                                                  .watch<TextProvider>()
+                                                  .colorCalculated,
+                                              thumbColor: context
+                                                  .watch<TextProvider>()
+                                                  .colorCalculated,
+                                              value: context
+                                                  .watch<TextProvider>()
+                                                  .color,
+                                              min: 0,
+                                              max: 16777215,
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<TextProvider>()
+                                                    .setColor(value);
+                                                setTextColor();
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            PhosphorIconsBold.textT,
+                            color: context.watch<TextProvider>().isTexting
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        // icon shape
+                        IconButton(
+                          onPressed: () async {
+                            context.read<ShapeProvier>().setIsShaping(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<HandProvider>().setIsHanding(false);
+
+                            await showModalBottomSheet(
+                              useSafeArea: true,
+                              clipBehavior: Clip.antiAliasWithSaveLayer,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                                maxHeight: 400,
+                              ),
+                              isScrollControlled: true,
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Colors.green,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Shapes'),
+                                          SizedBox(width: 20),
+                                          Expanded(
                                             child: Container(
-                                          alignment: Alignment.center,
-                                          child: Switch(
-                                            value: context
-                                                .watch<ShapeProvier>()
-                                                .fillShape,
-                                            onChanged: (value) {
-                                              context
-                                                  .read<ShapeProvier>()
-                                                  .setFillShape(value);
-                                              setShapeFactoryPaint(
-                                                  (controller.shapePaint ??
-                                                          shapePaint)
-                                                      .copyWith(
-                                                style: value
-                                                    ? PaintingStyle.fill
-                                                    : PaintingStyle.stroke,
-                                              ));
-                                            },
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  for (int i = 0;
+                                                      i <
+                                                          context
+                                                              .read<
+                                                                  ShapeProvier>()
+                                                              .shapeList
+                                                              .length;
+                                                      i++)
+                                                    GestureDetector(
+                                                      onTap: () {
+                                                        Map map = context
+                                                            .read<
+                                                                ShapeProvier>()
+                                                            .shapeList[i];
+                                                        // map to list
+                                                        List list =
+                                                            map.values.toList();
+                                                        print(list);
+                                                        // get the factory
+                                                        final factory = list[0];
+                                                        print(factory);
+                                                        selectShape(
+                                                            factory.toString());
+                                                        context
+                                                            .read<
+                                                                ShapeProvier>()
+                                                            .setShapeIndex(i);
+                                                      },
+                                                      child: Container(
+                                                        alignment:
+                                                            Alignment.center,
+                                                        height: 40,
+                                                        width: 40,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          shape: BoxShape
+                                                              .rectangle,
+                                                          border: Border.all(
+                                                            color: context
+                                                                        .watch<
+                                                                            ShapeProvier>()
+                                                                        .shapeIndex ==
+                                                                    i
+                                                                ? Colors.white
+                                                                : Colors
+                                                                    .transparent,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                        ),
+                                                        child: Icon(
+                                                          context
+                                                              .read<
+                                                                  ShapeProvier>()
+                                                              .shapeList[i]['icon'],
+                                                          color: Colors.white,
+                                                          size: 30,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
-                                        )),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          PhosphorIconsBold.shapes,
-                          color: context.watch<ShapeProvier>().isShaping
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Stroke Width'),
+                                          Expanded(
+                                            child: Slider(
+                                              value: context
+                                                  .watch<ShapeProvier>()
+                                                  .strokeWidth
+                                                  .toDouble(),
+                                              min: 1,
+                                              max: 100,
+                                              divisions: 10,
+                                              label: context
+                                                  .watch<ShapeProvier>()
+                                                  .strokeWidth
+                                                  .toString(),
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<ShapeProvier>()
+                                                    .setStrokeWidth(
+                                                        value.toInt());
+                                                setShapeFactoryPaint(
+                                                    (controller.shapePaint ??
+                                                            shapePaint)
+                                                        .copyWith(
+                                                  strokeWidth: value,
+                                                ));
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Color'),
+                                          Expanded(
+                                            child: Slider(
+                                              activeColor: context
+                                                  .watch<ShapeProvier>()
+                                                  .colorCalculated,
+                                              thumbColor: context
+                                                  .watch<ShapeProvier>()
+                                                  .colorCalculated,
+                                              value: context
+                                                  .watch<ShapeProvier>()
+                                                  .color,
+                                              min: 0,
+                                              max: 16777215,
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<ShapeProvier>()
+                                                    .setColor(value);
+                                                setShapeFactoryPaint(
+                                                    (controller.shapePaint ??
+                                                            shapePaint)
+                                                        .copyWith(
+                                                  color: context
+                                                      .read<ShapeProvier>()
+                                                      .colorCalculated,
+                                                ));
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Fill Shape'),
+                                          SizedBox(width: 20),
+                                          Expanded(
+                                              child: Container(
+                                            alignment: Alignment.center,
+                                            child: Switch(
+                                              value: context
+                                                  .watch<ShapeProvier>()
+                                                  .fillShape,
+                                              onChanged: (value) {
+                                                context
+                                                    .read<ShapeProvier>()
+                                                    .setFillShape(value);
+                                                setShapeFactoryPaint(
+                                                    (controller.shapePaint ??
+                                                            shapePaint)
+                                                        .copyWith(
+                                                  style: value
+                                                      ? PaintingStyle.fill
+                                                      : PaintingStyle.stroke,
+                                                ));
+                                              },
+                                            ),
+                                          )),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            PhosphorIconsBold.shapes,
+                            color: context.watch<ShapeProvier>().isShaping
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          context
-                              .read<GridProvider>()
-                              .setGrid(!context.read<GridProvider>().isGrid);
-                        },
-                        icon: Icon(
-                          Icons.grid_3x3_sharp,
-                          color: context.watch<GridProvider>().isGrid
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      )
-                    ],
+                        IconButton(
+                          onPressed: () {
+                            context
+                                .read<GridProvider>()
+                                .setGrid(!context.read<GridProvider>().isGrid);
+                          },
+                          icon: Icon(
+                            Icons.grid_3x3_sharp,
+                            color: context.watch<GridProvider>().isGrid
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 ),
               ),
               Column(
                 children: [
+                  Visibility(
+                    visible: context.watch<SearchProvider>().isSearch,
+                    child: Container(
+                      color: Theme.of(context).colorScheme.primary,
+                      height: 60,
+                      width: MediaQuery.of(context).size.width - 80,
+                      child: SearchAnchor(
+                        builder: (context, anchor) {
+                          return Container(
+                            margin: EdgeInsets.only(
+                              top: 5,
+                              left: 40,
+                              right: 40,
+                            ),
+                            height: 50,
+                            width: MediaQuery.of(context).size.width - 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          );
+                        },
+                        suggestionsBuilder: (context, query) {
+                          return [
+                            Container(
+                              height: 100,
+                              width: 100,
+                              color: Colors.red,
+                            )
+                          ];
+                        },
+                        isFullScreen: true,
+                      ),
+                    ),
+                  ),
                   Container(
-                    height: MediaQuery.of(context).size.height - 50,
+                    height: context.watch<SearchProvider>().isSearch
+                        ? MediaQuery.of(context).size.height - 110
+                        : MediaQuery.of(context).size.height - 50,
                     width: MediaQuery.of(context).size.width - 80,
                     child: context
                                 .watch<StorageProvider>()
@@ -939,120 +1006,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                         : Center(
                             child: CircularProgressIndicator(),
                           ),
-                    /*StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  stream: context
-                      .read<StorageProvider>()
-                      .getAllImage(context.watch<AuthProvider>().user!.uid),
-                  builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
-                    switch (snapshot.connectionState) {
-                      case ConnectionState.waiting:
-                        return Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      default:
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Something went wrong'),
-                          );
-                        } else {
-                          if (snapshot.hasData) {
-                            print(snapshot.data!.data());
-                            List list = snapshot.data!.get('images');
-                            pageController = PageController(
-                                initialPage: list.length, keepPage: true);
-                            print(list);
-                            return PageView.builder(
-                              controller: pageController,
-                              itemCount: list.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index >= list.length) {
-                                  return // start canvas
-                                      Container(
-                                    child: Stack(
-                                      children: [
-                                        Visibility(
-                                          visible: context
-                                              .watch<GridProvider>()
-                                              .isGrid,
-                                          child: Positioned(
-                                            child: Container(
-                                              height: MediaQuery.of(context)
-                                                  .size
-                                                  .height,
-                                              width: MediaQuery.of(context)
-                                                      .size
-                                                      .width -
-                                                  80,
-                                              child: Column(
-                                                children: [
-                                                  for (int i = 50;
-                                                      i <
-                                                          MediaQuery.of(context)
-                                                              .size
-                                                              .width;
-                                                      i += 50)
-                                                    Line(
-                                                      y: i,
-                                                      x: -MediaQuery.of(context)
-                                                              .size
-                                                              .height
-                                                              .toInt() +
-                                                          30,
-                                                      isSideBarOpen:
-                                                          sidebarOpen,
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                            left: 0,
-                                            top: 0,
-                                          ),
-                                        ),
-                                        FlutterPainter(
-                                          controller: controller,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  // end cqanva
-                                } else {
-                                  return Container(
-                                    child: Image.network(
-                                      list[index]['url'],
-                                      fit: BoxFit.cover,
-                                    ),
-                                  );
-                                }
-                              },
-                            );
-
-                            */ /*return PageView(
-                              physics: NeverScrollableScrollPhysics(),
-                              controller: pageController,
-                              children: [
-                                for (int i = 0; i < list.length; i++)
-                                  Container(
-                                    child: Image.network(
-                                      list[i]['url'],
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                              ],
-                            );*/ /*
-                          } else {
-                            return Center(child: CircularProgressIndicator());
-                          }
-                        }
-                    }
-                  },
-                ),*/
 
                     // end of the canvas
                   ),
                   Container(
                     height: 50,
-                    width: MediaQuery.of(context).size.width - 80,
-                    color: Colors.red,
+                    width: sidebarOpen
+                        ? MediaQuery.of(context).size.width - 80
+                        : MediaQuery.of(context).size.width,
+                    color: Theme.of(context).colorScheme.primary,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
