@@ -1086,6 +1086,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                         TextButton(
                           onPressed: () {
                             print('pressed');
+                            ScrollController scrollController =
+                                ScrollController();
+
                             Get.dialog(
                               AlertDialog(
                                 scrollable: false,
@@ -1103,53 +1106,61 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                   textAlign: TextAlign.center,
                                 ),
                                 content: Container(
-                                  height: 300,
+                                  height: 225,
                                   width: 300,
-                                  child: SingleChildScrollView(
-                                    child: Column(
-                                      children: [
-                                        for (int i = 0;
-                                            i <
-                                                context
-                                                    .watch<StorageProvider>()
-                                                    .lstImages
-                                                    .length;
-                                            i++)
-                                          GestureDetector(
-                                            onTap: () {
-                                              pageController.jumpToPage(i);
-                                              Get.back();
-                                            },
-                                            child: Container(
-                                              height: 50,
-                                              width: 50,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: context
-                                                              .read<
-                                                                  StorageProvider>()
-                                                              .selectedPage ==
-                                                          i
-                                                      ? Colors.white
-                                                      : Colors.transparent,
-                                                ),
+                                  child: ListView.builder(
+                                      itemCount: context
+                                              .read<StorageProvider>()
+                                              .lstImages
+                                              .length +
+                                          1,
+                                      controller: scrollController,
+                                      itemBuilder: (context, index) {
+                                        scrollController.animateTo(
+                                            context
+                                                    .read<StorageProvider>()
+                                                    .selectedPage
+                                                    .toDouble() *
+                                                50,
+                                            duration:
+                                                Duration(milliseconds: 300),
+                                            curve: Curves.easeIn);
+
+                                        return InkWell(
+                                          onTap: () {
+                                            context
+                                                .read<StorageProvider>()
+                                                .setSelectedPage(index);
+                                            pageController.jumpToPage(index);
+                                            Get.back();
+                                          },
+                                          child: Container(
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: context
+                                                            .read<
+                                                                StorageProvider>()
+                                                            .selectedPage ==
+                                                        index
+                                                    ? Colors.white
+                                                    : Colors.transparent,
                                               ),
-                                              child: Center(
-                                                child: Text(
-                                                  '${i + 1}',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 20,
-                                                  ),
-                                                ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            height: 50,
+                                            child: Text(
+                                              'Page ${index + 1}',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 20,
                                               ),
                                             ),
                                           ),
-                                      ],
-                                    ),
-                                  ),
+                                        );
+                                      }),
                                 ),
                                 actionsOverflowButtonSpacing: 20,
                                 actions: [
