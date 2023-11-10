@@ -13,10 +13,22 @@ class FirestoreRepository {
   FirebaseFirestore get db => _db;
 
   // method to add the url of the image to the firestore
-  Future<void> addImageUrl(String url, String userId) async {
+  Future<void> addImageUrl(String url, String userId, String idImage) async {
     try {
-      List<String> images = await getImages(userId);
-      images.add(url);
+      List<dynamic> images = [];
+      var data = await getAllImagesSync(userId);
+      print('data');
+      print(data);
+      if (data != null) {
+        images = data;
+      }
+      images.add({
+        'url': url,
+        'id': idImage,
+      });
+      print('images');
+      print(images);
+
       await _db.collection('users').doc(userId).update({
         'images': images,
       });
@@ -25,13 +37,20 @@ class FirestoreRepository {
     }
   }
 
-  Future<List<String>> getImages(String userId) async {
+  Future getAllImagesSync(String userId) async {
     try {
       var data = await _db.collection('users').doc(userId).get();
+      return data.get('images');
+    } catch (e) {
+      throw e;
+    }
+  }
 
-      List<String> images = data['images'].cast<String>();
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getImages(String userId) {
+    try {
+      var data = _db.collection('users').doc(userId).snapshots();
 
-      return images;
+      return data;
     } catch (e) {
       throw e;
     }

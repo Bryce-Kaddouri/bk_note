@@ -4,6 +4,8 @@ import 'package:bk_note/provider/auth_provider.dart';
 import 'package:bk_note/provider/grid_provider.dart';
 import 'package:bk_note/provider/storage_provider.dart';
 import 'package:bk_note/screens/auth_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:bk_note/provider/eraser_provider.dart';
@@ -124,10 +126,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round;
   AnimationController? _controllerAnimationUpload;
+  late PageController pageController;
 
   @override
   void initState() {
     super.initState();
+
+    context
+        .read<StorageProvider>()
+        .getAllImage(context.read<AuthProvider>().user!.uid);
 
     _controllerAnimationUpload = AnimationController(
         duration: Duration(milliseconds: 3000), vsync: this);
@@ -204,6 +211,25 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    int nbPage = context.watch<StorageProvider>().lstImages.length;
+    if (nbPage != 0 || context.watch<StorageProvider>().isCharged == true) {
+      print('nbPage test');
+      print(nbPage);
+      pageController = PageController(
+        initialPage: nbPage + 1,
+        viewportFraction: 1,
+      );
+
+      pageController.addListener(() {
+        print('pageController.page');
+        print(pageController.page);
+        context
+            .read<StorageProvider>()
+            .setSelectedPage(pageController.page!.toInt());
+      });
+    }
+    print('nbPage');
+    print(nbPage);
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: Stack(
@@ -831,43 +857,374 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-              Expanded(
-                  child: Container(
-                child: Stack(
-                  children: [
-                    Visibility(
-                      visible: context.watch<GridProvider>().isGrid,
-                      child: Positioned(
-                        child: Container(
-                          height: MediaQuery.of(context).size.height,
-                          width: MediaQuery.of(context).size.width - 80,
-                          child: Column(
+              Column(
+                children: [
+                  Container(
+                    height: MediaQuery.of(context).size.height - 50,
+                    width: MediaQuery.of(context).size.width - 80,
+                    child: context
+                                .watch<StorageProvider>()
+                                .lstImages
+                                .isNotEmpty ||
+                            context.watch<StorageProvider>().isCharged == true
+                        ? PageView(
+                            physics:
+                                context.watch<StorageProvider>().selectedPage ==
+                                        context
+                                            .watch<StorageProvider>()
+                                            .lstImages
+                                            .length
+                                    ? NeverScrollableScrollPhysics()
+                                    : AlwaysScrollableScrollPhysics(),
+                            controller: pageController,
                             children: [
-                              for (int i = 50;
-                                  i < MediaQuery.of(context).size.width;
-                                  i += 50)
-                                Line(
-                                  y: i,
-                                  x: -MediaQuery.of(context)
-                                          .size
-                                          .height
-                                          .toInt() +
-                                      30,
-                                  isSideBarOpen: sidebarOpen,
+                              for (var image
+                                  in context.watch<StorageProvider>().lstImages)
+                                Container(
+                                  child: Image.network(
+                                    image['url'],
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
+
+                              // start canvas
+                              Container(
+                                child: Stack(
+                                  children: [
+                                    Visibility(
+                                      visible:
+                                          context.watch<GridProvider>().isGrid,
+                                      child: Positioned(
+                                        child: Container(
+                                          height: MediaQuery.of(context)
+                                              .size
+                                              .height,
+                                          width: MediaQuery.of(context)
+                                                  .size
+                                                  .width -
+                                              80,
+                                          child: Column(
+                                            children: [
+                                              for (int i = 50;
+                                                  i <
+                                                      MediaQuery.of(context)
+                                                          .size
+                                                          .width;
+                                                  i += 50)
+                                                Line(
+                                                  y: i,
+                                                  x: -MediaQuery.of(context)
+                                                          .size
+                                                          .height
+                                                          .toInt() +
+                                                      30,
+                                                  isSideBarOpen: sidebarOpen,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        left: 0,
+                                        top: 0,
+                                      ),
+                                    ),
+                                    FlutterPainter(
+                                      controller: controller,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // end cqanva
                             ],
+                          )
+                        : Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                    /*StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: context
+                      .read<StorageProvider>()
+                      .getAllImage(context.watch<AuthProvider>().user!.uid),
+                  builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
+                    switch (snapshot.connectionState) {
+                      case ConnectionState.waiting:
+                        return Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      default:
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Something went wrong'),
+                          );
+                        } else {
+                          if (snapshot.hasData) {
+                            print(snapshot.data!.data());
+                            List list = snapshot.data!.get('images');
+                            pageController = PageController(
+                                initialPage: list.length, keepPage: true);
+                            print(list);
+                            return PageView.builder(
+                              controller: pageController,
+                              itemCount: list.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index >= list.length) {
+                                  return // start canvas
+                                      Container(
+                                    child: Stack(
+                                      children: [
+                                        Visibility(
+                                          visible: context
+                                              .watch<GridProvider>()
+                                              .isGrid,
+                                          child: Positioned(
+                                            child: Container(
+                                              height: MediaQuery.of(context)
+                                                  .size
+                                                  .height,
+                                              width: MediaQuery.of(context)
+                                                      .size
+                                                      .width -
+                                                  80,
+                                              child: Column(
+                                                children: [
+                                                  for (int i = 50;
+                                                      i <
+                                                          MediaQuery.of(context)
+                                                              .size
+                                                              .width;
+                                                      i += 50)
+                                                    Line(
+                                                      y: i,
+                                                      x: -MediaQuery.of(context)
+                                                              .size
+                                                              .height
+                                                              .toInt() +
+                                                          30,
+                                                      isSideBarOpen:
+                                                          sidebarOpen,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            left: 0,
+                                            top: 0,
+                                          ),
+                                        ),
+                                        FlutterPainter(
+                                          controller: controller,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  // end cqanva
+                                } else {
+                                  return Container(
+                                    child: Image.network(
+                                      list[index]['url'],
+                                      fit: BoxFit.cover,
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+
+                            */ /*return PageView(
+                              physics: NeverScrollableScrollPhysics(),
+                              controller: pageController,
+                              children: [
+                                for (int i = 0; i < list.length; i++)
+                                  Container(
+                                    child: Image.network(
+                                      list[i]['url'],
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                              ],
+                            );*/ /*
+                          } else {
+                            return Center(child: CircularProgressIndicator());
+                          }
+                        }
+                    }
+                  },
+                ),*/
+
+                    // end of the canvas
+                  ),
+                  Container(
+                    height: 50,
+                    width: MediaQuery.of(context).size.width - 80,
+                    color: Colors.red,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            fixedSize: Size(30, 30),
+                            shape: CircleBorder(),
+                            backgroundColor:
+                                context.watch<StorageProvider>().selectedPage ==
+                                        0
+                                    ? Colors.grey
+                                    : Colors.white,
+                            foregroundColor:
+                                context.watch<StorageProvider>().selectedPage ==
+                                        0
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.primary,
+                          ),
+                          onPressed: () {
+                            if (context.read<StorageProvider>().selectedPage ==
+                                0) {
+                              return;
+                            }
+                            pageController.previousPage(
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeIn);
+                          },
+                          child: Icon(Icons.arrow_back_ios),
+                        ),
+                        SizedBox(width: 5),
+                        TextButton(
+                          onPressed: () {
+                            print('pressed');
+                            Get.dialog(
+                              AlertDialog(
+                                scrollable: false,
+                                alignment: Alignment.center,
+                                actionsAlignment: MainAxisAlignment.center,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
+                                titleTextStyle: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                                title: Text(
+                                  'Choose a page',
+                                  textAlign: TextAlign.center,
+                                ),
+                                content: Container(
+                                  height: 300,
+                                  width: 300,
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      children: [
+                                        for (int i = 0;
+                                            i <
+                                                context
+                                                    .watch<StorageProvider>()
+                                                    .lstImages
+                                                    .length;
+                                            i++)
+                                          GestureDetector(
+                                            onTap: () {
+                                              pageController.jumpToPage(i);
+                                              Get.back();
+                                            },
+                                            child: Container(
+                                              height: 50,
+                                              width: 50,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: context
+                                                              .read<
+                                                                  StorageProvider>()
+                                                              .selectedPage ==
+                                                          i
+                                                      ? Colors.white
+                                                      : Colors.transparent,
+                                                ),
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  '${i + 1}',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 20,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                actionsOverflowButtonSpacing: 20,
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Get.back();
+                                    },
+                                    child: Text(
+                                      'Cancel',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      context.read<AuthProvider>().logout();
+                                      Get.back();
+                                    },
+                                    child: Text('Go to page',
+                                        style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                              barrierDismissible: false,
+                            );
+                          },
+                          child: Text(
+                            '${context.watch<StorageProvider>().selectedPage + 1}/${context.watch<StorageProvider>().lstImages.length + 1}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
                           ),
                         ),
-                        left: 0,
-                        top: 0,
-                      ),
+                        SizedBox(width: 5),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            fixedSize: Size(30, 30),
+                            shape: CircleBorder(),
+                            backgroundColor:
+                                context.watch<StorageProvider>().selectedPage ==
+                                        context
+                                            .watch<StorageProvider>()
+                                            .lstImages
+                                            .length
+                                    ? Colors.grey
+                                    : Colors.white,
+                            foregroundColor:
+                                context.watch<StorageProvider>().selectedPage ==
+                                        context
+                                            .watch<StorageProvider>()
+                                            .lstImages
+                                            .length
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.primary,
+                          ),
+                          onPressed: () {
+                            if (context.read<StorageProvider>().selectedPage ==
+                                context
+                                    .read<StorageProvider>()
+                                    .lstImages
+                                    .length) {
+                              return;
+                            }
+                            pageController.nextPage(
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeIn);
+                          },
+                          child: Icon(Icons.arrow_forward_ios),
+                        ),
+                      ],
                     ),
-                    FlutterPainter(
-                      controller: controller,
-                    ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
             ],
           ),
           AnimatedBuilder(
@@ -1041,6 +1398,21 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               double progress = (snapshot.data!.bytesTransferred /
                       snapshot.data!.totalBytes) *
                   100;
+
+              if (snapshot.data!.state == TaskState.success) {
+                // get url and save to firestore
+                print(snapshot.data!.ref.name);
+                snapshot.data!.ref.getDownloadURL().then((value) {
+                  print(value);
+                  context.read<StorageProvider>().addImageUrl(
+                      value,
+                      context.read<AuthProvider>().user!.uid,
+                      snapshot.data!.ref.name);
+                });
+
+                Get.back();
+              }
+
               print('progress');
               print(progress);
               if (progress == 100) {
@@ -1093,6 +1465,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             }
           }),
     );
+    controller.clearDrawables();
 
     print(file.path);
 
@@ -1115,15 +1488,16 @@ class Line extends StatefulWidget {
   State<StatefulWidget> createState() => _LineState();
 }
 
-class _LineState extends State<Line> with SingleTickerProviderStateMixin {
+class _LineState extends State<Line> with TickerProviderStateMixin {
   double _progress = 0.0;
   late Animation<double> animation;
+  late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    var controller =
-        AnimationController(duration: Duration(milliseconds: 500), vsync: this);
+    _controller = AnimationController(
+        duration: Duration(milliseconds: 1000), vsync: this);
     WidgetsBinding.instance!.addPostFrameCallback((_) {
       double widthScreen = MediaQuery.of(context).size.width.toDouble() - 100;
       double halfWidth = widthScreen / 2;
@@ -1131,7 +1505,7 @@ class _LineState extends State<Line> with SingleTickerProviderStateMixin {
       print(
           'resolution : ${MediaQuery.of(context).size.width} x ${MediaQuery.of(context).size.height}');
 
-      animation = Tween(begin: 0.0, end: halfWidth).animate(controller)
+      animation = Tween(begin: 0.0, end: halfWidth).animate(_controller)
         ..addListener(() {
           print(animation.value);
           setState(() {
@@ -1139,8 +1513,15 @@ class _LineState extends State<Line> with SingleTickerProviderStateMixin {
           });
         });
 
-      controller.forward();
+      _controller.forward();
     });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    super.dispose();
   }
 
   @override
