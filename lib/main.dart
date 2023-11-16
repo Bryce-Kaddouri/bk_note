@@ -129,6 +129,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     ..strokeCap = StrokeCap.round;
   AnimationController? _controllerAnimationUpload;
   late PageController pageController;
+  SearchController searchController = SearchController();
 
   @override
   void initState() {
@@ -281,10 +282,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                             size: 30,
                           ),
                         ),
-                        IconButton(
+                        /*IconButton(
                           onPressed: () {
                             context.read<SearchProvider>().setSearch(
                                 !context.read<SearchProvider>().isSearch);
+                            // display sarch modal in fill screen
                           },
                           icon: Icon(
                             Icons.search,
@@ -293,6 +295,168 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                 : Colors.white,
                             size: 30,
                           ),
+                        ),*/
+                        SearchAnchor(
+                          searchController: searchController,
+                          builder: (context, anchor) {
+                            return IconButton(
+                              icon: Icon(
+                                Icons.search,
+                                color: context.read<SearchProvider>().isSearch
+                                    ? Colors.grey
+                                    : Colors.white,
+                                size: 30,
+                              ),
+                              onPressed: () {
+                                searchController.openView();
+                              },
+                            );
+                            /*  Container(
+                            margin: EdgeInsets.only(
+                              top: 5,
+                              left: 40,
+                              right: 40,
+                            ),
+                            height: 50,
+                            width: MediaQuery.of(context).size.width - 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          );*/
+                          },
+                          suggestionsBuilder: (context, searchController) {
+                            print('searchController');
+                            print(searchController.text);
+                            List data = [];
+                            if (searchController.text.isEmpty) {
+                              data = context.read<StorageProvider>().lstImages;
+                            } else {
+                              data = context
+                                  .read<StorageProvider>()
+                                  .lstImages
+                                  .where((element) => element['keywords']
+                                      .toString()
+                                      .toLowerCase()
+                                      .contains(
+                                          searchController.text.toLowerCase()))
+                                  .toList();
+                            }
+                            print('data');
+                            print(data);
+                            return List.generate(
+                                data.isEmpty
+                                    ? 1
+                                    : ((data.length / 2).floor() +
+                                        data.length % 2), (index) {
+                              return data.isEmpty
+                                  ? ListTile(
+                                      title: Text('No data found'),
+                                    )
+                                  : LayoutBuilder(
+                                      builder: (context, constraint) {
+                                      return Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          for (int i = 0; i < 2; i++)
+                                            if (index * 2 + i < data.length)
+                                              Expanded(
+                                                child: Container(
+                                                  margin: EdgeInsets.all(20),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20),
+                                                    border: Border.all(
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                                  height: 300,
+                                                  child: InkWell(
+                                                    hoverColor:
+                                                        Colors.transparent,
+                                                    onTap: () {
+                                                      searchController
+                                                          .closeView(
+                                                              searchController
+                                                                  .text);
+                                                      int indexSelected = context
+                                                          .read<
+                                                              StorageProvider>()
+                                                          .lstImages
+                                                          .indexWhere(
+                                                              (element) =>
+                                                                  element[
+                                                                      'url'] ==
+                                                                  data[index *
+                                                                          2 +
+                                                                      i]['url']);
+                                                      print('indexSelected');
+                                                      print(indexSelected);
+                                                      pageController
+                                                          .animateToPage(
+                                                              indexSelected,
+                                                              duration: Duration(
+                                                                  milliseconds:
+                                                                      500),
+                                                              curve: Curves
+                                                                  .easeInOut);
+                                                      context
+                                                          .read<
+                                                              StorageProvider>()
+                                                          .setSelectedPage(
+                                                              indexSelected);
+                                                    },
+                                                    child: Column(
+                                                      children: [
+                                                        SizedBox(height: 10),
+                                                        Text(
+                                                          data[index * 2 + i]
+                                                                  ['keywords']
+                                                              .join(', '),
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        Container(
+                                                          padding:
+                                                              EdgeInsets.all(
+                                                                  10),
+                                                          height: 250,
+                                                          width:
+                                                              double.infinity,
+                                                          child: Image.network(
+                                                            data[index * 2 + i]
+                                                                ['url'],
+                                                            fit: BoxFit.cover,
+                                                          ),
+                                                        ),
+                                                        SizedBox(height: 10),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            else
+                                              Expanded(
+                                                child: Container(
+                                                  margin: EdgeInsets.all(20),
+                                                  height: 300,
+                                                  width: double.infinity,
+                                                  color: Colors.transparent,
+                                                ),
+                                              ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      );
+                                    });
+                            });
+                          },
+                          isFullScreen: true,
                         ),
                         IconButton(
                           onPressed: () {
@@ -886,48 +1050,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               ),
               Column(
                 children: [
-                  Visibility(
-                    visible: context.watch<SearchProvider>().isSearch,
-                    child: Container(
-                      color: Theme.of(context).colorScheme.primary,
-                      height: 60,
-                      width: MediaQuery.of(context).size.width - 80,
-                      child: SearchAnchor(
-                        builder: (context, anchor) {
-                          return Container(
-                            margin: EdgeInsets.only(
-                              top: 5,
-                              left: 40,
-                              right: 40,
-                            ),
-                            height: 50,
-                            width: MediaQuery.of(context).size.width - 80,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(50),
-                              border: Border.all(
-                                color: Colors.grey,
-                              ),
-                            ),
-                          );
-                        },
-                        suggestionsBuilder: (context, query) {
-                          return [
-                            Container(
-                              height: 100,
-                              width: 100,
-                              color: Colors.red,
-                            )
-                          ];
-                        },
-                        isFullScreen: true,
-                      ),
-                    ),
-                  ),
                   Container(
-                    height: context.watch<SearchProvider>().isSearch
-                        ? MediaQuery.of(context).size.height - 110
-                        : MediaQuery.of(context).size.height - 50,
+                    height: MediaQuery.of(context).size.height - 50,
                     width: MediaQuery.of(context).size.width - 80,
                     child: context
                                 .watch<StorageProvider>()
@@ -1340,109 +1464,204 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 
   void renderImage() async {
-    ui.Image img = await controller.renderImage(
-      Size(1920, 1080),
+    List<String> keywords = [];
+    List<TextEditingController> controllers = [TextEditingController()];
+    Stream<int> getNbController() async* {
+      yield controllers.length;
+    }
+
+    Widget input = Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controllers[0],
+            decoration: InputDecoration(
+              hintText: 'Enter keyword',
+            ),
+          ),
+        ),
+      ],
     );
-    // final file = File('${(await getTemporaryDirectory()).path}/img.png');
-    // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
-    Uint8List? bytes = await img.pngBytes;
-
-    final file = File('${(await getTemporaryDirectory()).path}/img.png');
-    await file.writeAsBytes(bytes!);
-    String userId = context.read<AuthProvider>().user!.uid;
-
-    Get.snackbar(
-      'Uploading',
-      '',
-      margin: EdgeInsets.all(10),
-      borderRadius: 10,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-      shouldIconPulse: true,
-      showProgressIndicator: false,
-      isDismissible: false,
-      messageText: null,
-      titleText: StreamBuilder(
-          stream: context.read<StorageProvider>().uploadImage(file, userId),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              print(snapshot.data!.bytesTransferred);
-              double progress = (snapshot.data!.bytesTransferred /
-                      snapshot.data!.totalBytes) *
-                  100;
-
-              if (snapshot.data!.state == TaskState.success) {
-                // get url and save to firestore
-                print(snapshot.data!.ref.name);
-                snapshot.data!.ref.getDownloadURL().then((value) {
-                  print(value);
-                  context.read<StorageProvider>().addImageUrl(
-                      value,
-                      context.read<AuthProvider>().user!.uid,
-                      snapshot.data!.ref.name);
-                });
-
+    Get.dialog(
+        AlertDialog(
+          title: Text('Choose keywords'),
+          content: Container(
+            child: Column(children: [
+              SizedBox(height: 10),
+              StreamBuilder(
+                  builder: (context, snapshot) {
+                    int nb = snapshot.data ?? 0;
+                    print('nb');
+                    print(nb);
+                    print('snapshot');
+                    print(snapshot.data);
+                    if (snapshot.hasData) {
+                      return Container(
+                          height: 300,
+                          width: 300,
+                          child: ListView.builder(
+                              itemCount: nb,
+                              itemBuilder: (context, index) {
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: controllers[index],
+                                        decoration: InputDecoration(
+                                          hintText: 'Enter keyword',
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () {
+                                        controllers.removeAt(index);
+                                      },
+                                      icon: Icon(Icons.delete),
+                                    ),
+                                  ],
+                                );
+                              }));
+                    } else {
+                      return Container();
+                    }
+                  },
+                  stream: Stream.periodic(
+                      Duration(milliseconds: 1000), (x) => controllers.length)),
+              IconButton(
+                onPressed: () {
+                  controllers.add(TextEditingController());
+                },
+                icon: Icon(Icons.add),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
                 Get.back();
-              }
-
-              print('progress');
-              print(progress);
-              if (progress == 100) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '100%',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    SizedBox(width: 10),
-                    Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 50,
-                    ),
-                  ],
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                ui.Image img = await controller.renderImage(
+                  Size(1920, 1080),
                 );
-              } else {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${progress.toInt()}%',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    SizedBox(width: 10),
-                    CircularProgressIndicator(
-                      backgroundColor: Colors.white,
-                      value: progress / 100,
-                      color: Colors.red,
-                    ),
-                  ],
+                // final file = File('${(await getTemporaryDirectory()).path}/img.png');
+                // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+                Uint8List? bytes = await img.pngBytes;
+
+                final file =
+                    File('${(await getTemporaryDirectory()).path}/img.png');
+                await file.writeAsBytes(bytes!);
+                String userId = context.read<AuthProvider>().user!.uid;
+                Get.snackbar(
+                  'Uploading',
+                  '',
+                  margin: EdgeInsets.all(10),
+                  borderRadius: 10,
+                  snackPosition: SnackPosition.TOP,
+                  backgroundColor: Colors.blue,
+                  colorText: Colors.white,
+                  shouldIconPulse: true,
+                  showProgressIndicator: false,
+                  isDismissible: false,
+                  messageText: null,
+                  titleText: StreamBuilder(
+                      stream: context
+                          .read<StorageProvider>()
+                          .uploadImage(file, userId),
+                      builder: (context, snapshot) {
+                        List<String> lstWords = List.generate(
+                            controllers.length,
+                            (index) => controllers[index].text.trim());
+                        if (snapshot.hasData) {
+                          print(snapshot.data!.bytesTransferred);
+                          double progress = (snapshot.data!.bytesTransferred /
+                                  snapshot.data!.totalBytes) *
+                              100;
+
+                          if (snapshot.data!.state == TaskState.success) {
+                            // get url and save to firestore
+
+                            print(snapshot.data!.ref.name);
+                            snapshot.data!.ref.getDownloadURL().then((value) {
+                              print(value);
+                              context.read<StorageProvider>().addImageUrl(
+                                    value,
+                                    context.read<AuthProvider>().user!.uid,
+                                    snapshot.data!.ref.name,
+                                    lstWords,
+                                  );
+                            });
+
+                            Get.back();
+                          }
+
+                          print('progress');
+                          print(progress);
+                          if (progress == 100) {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '100%',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                SizedBox(width: 10),
+                                Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 50,
+                                ),
+                              ],
+                            );
+                          } else {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${progress.toInt()}%',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                SizedBox(width: 10),
+                                CircularProgressIndicator(
+                                  backgroundColor: Colors.white,
+                                  value: progress / 100,
+                                  color: Colors.red,
+                                ),
+                              ],
+                            );
+                          }
+                        } else {
+                          return Row(
+                            children: [
+                              Text(
+                                '0%',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              SizedBox(width: 10),
+                              CircularProgressIndicator(
+                                value: 0,
+                                color: Colors.white,
+                              ),
+                            ],
+                          );
+                        }
+                      }),
                 );
-              }
-            } else {
-              return Row(
-                children: [
-                  Text(
-                    '0%',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  SizedBox(width: 10),
-                  CircularProgressIndicator(
-                    value: 0,
-                    color: Colors.white,
-                  ),
-                ],
-              );
-            }
-          }),
-    );
-    controller.clearDrawables();
+                controller.clearDrawables();
 
-    print(file.path);
+                print(file.path);
 
-    print(file.length());
+                print(file.length());
+                Get.back();
+              },
+              child: Text('Upload'),
+            ),
+          ],
+        ),
+        barrierDismissible: false);
   }
 }
 

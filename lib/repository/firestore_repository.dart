@@ -13,7 +13,8 @@ class FirestoreRepository {
   FirebaseFirestore get db => _db;
 
   // method to add the url of the image to the firestore
-  Future<void> addImageUrl(String url, String userId, String idImage) async {
+  Future<void> addImageUrl(
+      String url, String userId, String idImage, List<String> keywords) async {
     try {
       List<dynamic> images = [];
       var data = await getAllImagesSync(userId);
@@ -25,6 +26,7 @@ class FirestoreRepository {
       images.add({
         'url': url,
         'id': idImage,
+        'keywords': keywords,
       });
       print('images');
       print(images);
