@@ -234,6 +234,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     print('nbPage');
     print(nbPage);
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
@@ -1050,89 +1051,96 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               ),
               Column(
                 children: [
-                  Container(
-                    height: MediaQuery.of(context).size.height - 50,
-                    width: MediaQuery.of(context).size.width - 80,
-                    child: context
-                                .watch<StorageProvider>()
-                                .lstImages
-                                .isNotEmpty ||
-                            context.watch<StorageProvider>().isCharged == true
-                        ? PageView(
-                            physics:
-                                context.watch<StorageProvider>().selectedPage ==
-                                        context
-                                            .watch<StorageProvider>()
-                                            .lstImages
-                                            .length
-                                    ? NeverScrollableScrollPhysics()
-                                    : AlwaysScrollableScrollPhysics(),
-                            controller: pageController,
-                            children: [
-                              for (var image
-                                  in context.watch<StorageProvider>().lstImages)
+                  LayoutBuilder(builder: (context, constraint) {
+                    print('constraint.biggest.height');
+                    print(constraint.biggest.height);
+                    return Container(
+                      height: MediaQuery.of(context).size.height - 50,
+                      width: MediaQuery.of(context).size.width - 80,
+                      child: context
+                                  .watch<StorageProvider>()
+                                  .lstImages
+                                  .isNotEmpty ||
+                              context.watch<StorageProvider>().isCharged == true
+                          ? PageView(
+                              physics: context
+                                          .watch<StorageProvider>()
+                                          .selectedPage ==
+                                      context
+                                          .watch<StorageProvider>()
+                                          .lstImages
+                                          .length
+                                  ? NeverScrollableScrollPhysics()
+                                  : AlwaysScrollableScrollPhysics(),
+                              controller: pageController,
+                              children: [
+                                for (var image in context
+                                    .watch<StorageProvider>()
+                                    .lstImages)
+                                  Container(
+                                    child: Image.network(
+                                      image['url'],
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+
+                                // start canvas
                                 Container(
-                                  child: Image.network(
-                                    image['url'],
-                                    fit: BoxFit.cover,
+                                  child: Stack(
+                                    children: [
+                                      Visibility(
+                                        visible: context
+                                            .watch<GridProvider>()
+                                            .isGrid,
+                                        child: Positioned(
+                                          child: Container(
+                                            height: MediaQuery.of(context)
+                                                .size
+                                                .height,
+                                            width: MediaQuery.of(context)
+                                                    .size
+                                                    .width -
+                                                80,
+                                            child: Column(
+                                              children: [
+                                                for (int i = 50;
+                                                    i <
+                                                        MediaQuery.of(context)
+                                                            .size
+                                                            .width;
+                                                    i += 50)
+                                                  Line(
+                                                    y: i,
+                                                    x: -MediaQuery.of(context)
+                                                            .size
+                                                            .height
+                                                            .toInt() +
+                                                        30,
+                                                    isSideBarOpen: sidebarOpen,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          left: 0,
+                                          top: 0,
+                                        ),
+                                      ),
+                                      FlutterPainter(
+                                        controller: controller,
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                // end cqanva
+                              ],
+                            )
+                          : Center(
+                              child: CircularProgressIndicator(),
+                            ),
 
-                              // start canvas
-                              Container(
-                                child: Stack(
-                                  children: [
-                                    Visibility(
-                                      visible:
-                                          context.watch<GridProvider>().isGrid,
-                                      child: Positioned(
-                                        child: Container(
-                                          height: MediaQuery.of(context)
-                                              .size
-                                              .height,
-                                          width: MediaQuery.of(context)
-                                                  .size
-                                                  .width -
-                                              80,
-                                          child: Column(
-                                            children: [
-                                              for (int i = 50;
-                                                  i <
-                                                      MediaQuery.of(context)
-                                                          .size
-                                                          .width;
-                                                  i += 50)
-                                                Line(
-                                                  y: i,
-                                                  x: -MediaQuery.of(context)
-                                                          .size
-                                                          .height
-                                                          .toInt() +
-                                                      30,
-                                                  isSideBarOpen: sidebarOpen,
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                        left: 0,
-                                        top: 0,
-                                      ),
-                                    ),
-                                    FlutterPainter(
-                                      controller: controller,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // end cqanva
-                            ],
-                          )
-                        : Center(
-                            child: CircularProgressIndicator(),
-                          ),
-
-                    // end of the canvas
-                  ),
+                      // end of the canvas
+                    );
+                  }),
                   Container(
                     height: 50,
                     width: sidebarOpen
@@ -1483,184 +1491,189 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       ],
     );
     Get.dialog(
-        AlertDialog(
-          title: Text('Choose keywords'),
-          content: Container(
-            child: Column(children: [
-              SizedBox(height: 10),
-              StreamBuilder(
-                  builder: (context, snapshot) {
-                    int nb = snapshot.data ?? 0;
-                    print('nb');
-                    print(nb);
-                    print('snapshot');
-                    print(snapshot.data);
-                    if (snapshot.hasData) {
-                      return Container(
-                          height: 300,
-                          width: 300,
-                          child: ListView.builder(
-                              itemCount: nb,
-                              itemBuilder: (context, index) {
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: controllers[index],
-                                        decoration: InputDecoration(
-                                          hintText: 'Enter keyword',
+        SafeArea(
+          child: AlertDialog(
+            title: Text('Choose keywords'),
+            content: Container(
+              height: 400,
+              child: Column(children: [
+                SizedBox(height: 10),
+                StreamBuilder(
+                    builder: (context, snapshot) {
+                      int nb = snapshot.data ?? 0;
+                      print('nb');
+                      print(nb);
+                      print('snapshot');
+                      print(snapshot.data);
+                      if (snapshot.hasData) {
+                        return Container(
+                            width: 300,
+                            height: 200,
+                            child: ListView.builder(
+                                itemCount: nb,
+                                itemBuilder: (context, index) {
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: controllers[index],
+                                          decoration: InputDecoration(
+                                            hintText: 'Enter keyword',
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    IconButton(
-                                      onPressed: () {
-                                        controllers.removeAt(index);
-                                      },
-                                      icon: Icon(Icons.delete),
-                                    ),
-                                  ],
-                                );
-                              }));
-                    } else {
-                      return Container();
-                    }
-                  },
-                  stream: Stream.periodic(
-                      Duration(milliseconds: 1000), (x) => controllers.length)),
-              IconButton(
-                onPressed: () {
-                  controllers.add(TextEditingController());
-                },
-                icon: Icon(Icons.add),
-              ),
-            ]),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Get.back();
-              },
-              child: Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Get.back();
-                ui.Image img = await controller.renderImage(
-                  Size(1920, 1080),
-                );
-                // final file = File('${(await getTemporaryDirectory()).path}/img.png');
-                // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
-                Uint8List? bytes = await img.pngBytes;
-
-                final file =
-                    File('${(await getTemporaryDirectory()).path}/img.png');
-                await file.writeAsBytes(bytes!);
-                String userId = context.read<AuthProvider>().user!.uid;
-
-                Get.snackbar(
-                  'Uploading',
-                  '',
-                  margin: EdgeInsets.all(10),
-                  borderRadius: 10,
-                  snackPosition: SnackPosition.TOP,
-                  backgroundColor: Colors.blue,
-                  colorText: Colors.white,
-                  shouldIconPulse: true,
-                  showProgressIndicator: false,
-                  isDismissible: false,
-                  messageText: null,
-                  titleText: StreamBuilder(
-                      stream: context
-                          .read<StorageProvider>()
-                          .uploadImage(file, userId),
-                      builder: (context, snapshot) {
-                        List<String> lstWords = List.generate(
-                            controllers.length,
-                            (index) => controllers[index].text.trim());
-                        if (snapshot.hasData) {
-                          print(snapshot.data!.bytesTransferred);
-                          double progress = (snapshot.data!.bytesTransferred /
-                                  snapshot.data!.totalBytes) *
-                              100;
-
-                          if (snapshot.data!.state == TaskState.success) {
-                            // get url and save to firestore
-
-                            print(snapshot.data!.ref.name);
-                            snapshot.data!.ref.getDownloadURL().then((value) {
-                              print(value);
-                              context.read<StorageProvider>().addImageUrl(
-                                    value,
-                                    context.read<AuthProvider>().user!.uid,
-                                    snapshot.data!.ref.name,
-                                    lstWords,
+                                      IconButton(
+                                        onPressed: () {
+                                          controllers.removeAt(index);
+                                        },
+                                        icon: Icon(Icons.delete),
+                                      ),
+                                    ],
                                   );
-                            });
+                                }));
+                      } else {
+                        return Container();
+                      }
+                    },
+                    stream: Stream.periodic(Duration(milliseconds: 1000),
+                        (x) => controllers.length)),
+                IconButton(
+                  onPressed: () {
+                    controllers.add(TextEditingController());
+                  },
+                  icon: Icon(Icons.add),
+                ),
+              ]),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Get.back();
+                },
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Get.back();
+                  ui.Image img = await controller.renderImage(
+                    Size(1920, 1080),
+                  );
+                  // final file = File('${(await getTemporaryDirectory()).path}/img.png');
+                  // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+                  Uint8List? bytes = await img.pngBytes;
 
-                            Get.back();
-                          }
+                  final file =
+                      File('${(await getTemporaryDirectory()).path}/img.png');
+                  await file.writeAsBytes(bytes!);
+                  String userId = context.read<AuthProvider>().user!.uid;
 
-                          print('progress');
-                          print(progress);
-                          if (progress == 100) {
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '100%',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                SizedBox(width: 10),
-                                Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 50,
-                                ),
-                              ],
-                            );
+                  Get.snackbar(
+                    'Uploading',
+                    '',
+                    margin: EdgeInsets.all(10),
+                    borderRadius: 10,
+                    snackPosition: SnackPosition.TOP,
+                    backgroundColor: Colors.blue,
+                    colorText: Colors.white,
+                    shouldIconPulse: true,
+                    showProgressIndicator: false,
+                    isDismissible: false,
+                    messageText: null,
+                    titleText: StreamBuilder(
+                        stream: context
+                            .read<StorageProvider>()
+                            .uploadImage(file, userId),
+                        builder: (context, snapshot) {
+                          List<String> lstWords = List.generate(
+                              controllers.length,
+                              (index) => controllers[index].text.trim());
+                          if (snapshot.hasData) {
+                            print(snapshot.data!.bytesTransferred);
+                            double progress = (snapshot.data!.bytesTransferred /
+                                    snapshot.data!.totalBytes) *
+                                100;
+
+                            if (snapshot.data!.state == TaskState.success) {
+                              // get url and save to firestore
+
+                              print(snapshot.data!.ref.name);
+                              snapshot.data!.ref.getDownloadURL().then((value) {
+                                print(value);
+                                context.read<StorageProvider>().addImageUrl(
+                                      value,
+                                      context.read<AuthProvider>().user!.uid,
+                                      snapshot.data!.ref.name,
+                                      lstWords,
+                                    );
+                              });
+
+                              Get.back();
+                            }
+
+                            print('progress');
+                            print(progress);
+                            if (progress == 100) {
+                              return Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '100%',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 50,
+                                  ),
+                                ],
+                              );
+                            } else {
+                              return Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${progress.toInt()}%',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  SizedBox(width: 10),
+                                  CircularProgressIndicator(
+                                    backgroundColor: Colors.white,
+                                    value: progress / 100,
+                                    color: Colors.red,
+                                  ),
+                                ],
+                              );
+                            }
                           } else {
                             return Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${progress.toInt()}%',
+                                  '0%',
                                   style: TextStyle(color: Colors.white),
                                 ),
                                 SizedBox(width: 10),
                                 CircularProgressIndicator(
-                                  backgroundColor: Colors.white,
-                                  value: progress / 100,
-                                  color: Colors.red,
+                                  value: 0,
+                                  color: Colors.white,
                                 ),
                               ],
                             );
                           }
-                        } else {
-                          return Row(
-                            children: [
-                              Text(
-                                '0%',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                              SizedBox(width: 10),
-                              CircularProgressIndicator(
-                                value: 0,
-                                color: Colors.white,
-                              ),
-                            ],
-                          );
-                        }
-                      }),
-                );
-                controller.clearDrawables();
+                        }),
+                  );
+                  controller.clearDrawables();
 
-                print(file.path);
+                  print(file.path);
 
-                print(file.length());
-              },
-              child: Text('Upload'),
-            ),
-          ],
+                  print(file.length());
+                },
+                child: Text('Upload'),
+              ),
+            ],
+          ),
         ),
         barrierDismissible: false);
   }
