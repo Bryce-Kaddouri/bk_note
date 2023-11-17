@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:bk_note/provider/auth_provider.dart';
 import 'package:bk_note/provider/grid_provider.dart';
+import 'package:bk_note/provider/sarch_provider.dart';
 import 'package:bk_note/provider/storage_provider.dart';
 import 'package:bk_note/screens/auth_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -58,6 +59,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => GridProvider()),
         ChangeNotifierProvider(create: (_) => StorageProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
       ],
       child: const MyApp(),
     ),
@@ -127,6 +129,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     ..strokeCap = StrokeCap.round;
   AnimationController? _controllerAnimationUpload;
   late PageController pageController;
+  SearchController searchController = SearchController();
 
   @override
   void initState() {
@@ -211,7 +214,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    int nbPage = context.watch<StorageProvider>().lstImages.length;
+    int nbPage = context.read<StorageProvider>().lstImages.length;
     if (nbPage != 0 || context.watch<StorageProvider>().isCharged == true) {
       print('nbPage test');
       print(nbPage);
@@ -242,618 +245,806 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                 width: sidebarOpen ? 80 : 20,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
                 ),
                 child: Visibility(
                   visible: sidebarOpen,
-                  child: ListView(
-                    children: [
-                      const SizedBox(height: 40),
-                      IconButton(
-                        onPressed: () {
-                          Get.dialog(
-                            AlertDialog(
-                              title: Text('Are you sure?'),
-                              content: Text('Do you want to logout?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Get.back();
-                                  },
-                                  child: Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    context.read<AuthProvider>().logout();
-                                    Get.back();
-                                  },
-                                  child: Text('Logout'),
-                                ),
-                              ],
+                  child: Container(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: ListView(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            Get.dialog(
+                              AlertDialog(
+                                title: Text('Are you sure?'),
+                                content: Text('Do you want to logout?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Get.back();
+                                    },
+                                    child: Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      context.read<AuthProvider>().logout();
+                                      Get.back();
+                                    },
+                                    child: Text('Logout'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        /*IconButton(
+                          onPressed: () {
+                            context.read<SearchProvider>().setSearch(
+                                !context.read<SearchProvider>().isSearch);
+                            // display sarch modal in fill screen
+                          },
+                          icon: Icon(
+                            Icons.search,
+                            color: context.read<SearchProvider>().isSearch
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),*/
+                        SearchAnchor(
+                          searchController: searchController,
+                          builder: (context, anchor) {
+                            return IconButton(
+                              icon: Icon(
+                                Icons.search,
+                                color: context.read<SearchProvider>().isSearch
+                                    ? Colors.grey
+                                    : Colors.white,
+                                size: 30,
+                              ),
+                              onPressed: () {
+                                searchController.openView();
+                              },
+                            );
+                            /*  Container(
+                            margin: EdgeInsets.only(
+                              top: 5,
+                              left: 40,
+                              right: 40,
                             ),
-                          );
-                        },
-                        icon: Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          if (controller.canRedo) {
-                            redo();
-                          } else {
-                            return;
-                          }
-                        },
-                        icon: Icon(
-                          Icons.redo,
-                          color: context.watch<UnOrReDoProvider>().canRedo
-                              ? Colors.white
-                              : Colors.grey,
-                          size: 30,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          if (controller.canUndo) {
-                            undo();
-                          } else {
-                            return;
-                          }
-                        },
-                        icon: Icon(
-                          Icons.undo,
-                          color: context.watch<UnOrReDoProvider>().canUndo
-                              ? Colors.white
-                              : Colors.grey,
-                          size: 30,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          removeSelectedDrawable();
-                        },
-                        icon: Icon(
-                          Icons.delete,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          renderImage();
-                        },
-                        icon: Icon(
-                          Icons.save,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          useHand();
-                          context.read<HandProvider>().setIsHanding(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                        },
-                        icon: Icon(
-                          // icon to move the canvas
-                          PhosphorIconsFill.hand,
-                          color: context.watch<HandProvider>().isHanding
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      ),
-
-                      // eraser icon
-                      IconButton(
-                        onPressed: () async {
-                          toggleFreeStyleErase();
-                          context.read<EraserProvider>().setIsErasing(true);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                          context.read<HandProvider>().setIsHanding(false);
-
-                          await showModalBottomSheet(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxHeight: 120,
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
+                            height: 50,
+                            width: MediaQuery.of(context).size.width - 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(
+                                color: Colors.grey,
+                              ),
                             ),
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.red,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                height: 100,
-                                child: Row(
-                                  children: [
-                                    SizedBox(width: 20),
-                                    Text('Stroke Width'),
-                                    Expanded(
-                                      child: Slider(
-                                        value: context
-                                            .watch<EraserProvider>()
-                                            .strokeWidth,
-                                        min: 1,
-                                        max: 100,
-                                        divisions: 5,
-                                        label: context
-                                            .watch<EraserProvider>()
-                                            .strokeWidth
-                                            .toString(),
-                                        onChanged: (double value) {
-                                          context
-                                              .read<EraserProvider>()
-                                              .setStrokeWidth(value);
-                                          setFreeStyleStrokeWidth(value);
-                                        },
-                                      ),
-                                    ),
-                                    SizedBox(width: 20),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          PhosphorIconsFill.eraser,
-                          color: context.watch<EraserProvider>().isErasing
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () async {
-                          toggleFreeStyleDraw();
-                          context.read<PenProvider>().setIsPennig(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                          context.read<HandProvider>().setIsHanding(false);
-
-                          await showModalBottomSheet(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxHeight: 150,
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                            ),
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.blue,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Stroke Width'),
-                                        Expanded(
-                                          child: Slider(
-                                            value: context
-                                                .watch<PenProvider>()
-                                                .strokeWidth,
-                                            min: 1,
-                                            max: 100,
-                                            divisions: 10,
-                                            label: context
-                                                .watch<PenProvider>()
-                                                .strokeWidth
-                                                .toString(),
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<PenProvider>()
-                                                  .setStrokeWidth(value);
-                                              setFreeStyleStrokeWidth(value);
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Color'),
-                                        Expanded(
-                                          child: Slider(
-                                            activeColor: context
-                                                .watch<PenProvider>()
-                                                .colorCalculated,
-                                            thumbColor: context
-                                                .watch<PenProvider>()
-                                                .colorCalculated,
-                                            value: context
-                                                .watch<PenProvider>()
-                                                .color,
-                                            min: 0,
-                                            max: 16777215,
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<PenProvider>()
-                                                  .setColor(value);
-                                              setFreeStyleColor(context
-                                                  .read<PenProvider>()
-                                                  .colorCalculated);
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          Icons.edit,
-                          color: context.watch<PenProvider>().isPennig
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      // Text icon
-                      IconButton(
-                        onPressed: () async {
-                          addText();
-                          setTextFontSize(
-                              context.read<TextProvider>().fontSize.toDouble());
-                          setTextColor();
-                          context.read<TextProvider>().setIsTexting(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<ShapeProvier>().setIsShaping(false);
-                          context.read<HandProvider>().setIsHanding(false);
-
-                          await showModalBottomSheet(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxHeight: 150,
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                            ),
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.blue,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Font Size'),
-                                        Expanded(
-                                          child: Slider(
-                                            value: context
-                                                .watch<TextProvider>()
-                                                .fontSize
-                                                .toDouble(),
-                                            min: 1,
-                                            max: 100,
-                                            divisions: 10,
-                                            label: context
-                                                .watch<TextProvider>()
-                                                .fontSize
-                                                .toString(),
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<TextProvider>()
-                                                  .setFontSize(value.toInt());
-                                              setTextFontSize(value);
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Color'),
-                                        Expanded(
-                                          child: Slider(
-                                            activeColor: context
-                                                .watch<TextProvider>()
-                                                .colorCalculated,
-                                            thumbColor: context
-                                                .watch<TextProvider>()
-                                                .colorCalculated,
-                                            value: context
-                                                .watch<TextProvider>()
-                                                .color,
-                                            min: 0,
-                                            max: 16777215,
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<TextProvider>()
-                                                  .setColor(value);
-                                              setTextColor();
-                                            },
-                                          ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          PhosphorIconsBold.textT,
-                          color: context.watch<TextProvider>().isTexting
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      // icon shape
-                      IconButton(
-                        onPressed: () async {
-                          context.read<ShapeProvier>().setIsShaping(true);
-                          context.read<EraserProvider>().setIsErasing(false);
-                          context.read<PenProvider>().setIsPennig(false);
-                          context.read<TextProvider>().setIsTexting(false);
-                          context.read<HandProvider>().setIsHanding(false);
-
-                          await showModalBottomSheet(
-                            useSafeArea: true,
-                            clipBehavior: Clip.antiAliasWithSaveLayer,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            )),
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.5,
-                              maxHeight: 400,
-                            ),
-                            isScrollControlled: true,
-                            showDragHandle: true,
-                            context: context,
-                            builder: (context) {
-                              return Container(
-                                color: Colors.green,
-                                width: MediaQuery.of(context).size.width * 0.5,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Shapes'),
-                                        SizedBox(width: 20),
-                                        Expanded(
-                                          child: Container(
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.spaceEvenly,
-                                              children: [
-                                                for (int i = 0;
-                                                    i <
-                                                        context
-                                                            .read<
-                                                                ShapeProvier>()
-                                                            .shapeList
-                                                            .length;
-                                                    i++)
-                                                  GestureDetector(
-                                                    onTap: () {
-                                                      Map map = context
-                                                          .read<ShapeProvier>()
-                                                          .shapeList[i];
-                                                      // map to list
-                                                      List list =
-                                                          map.values.toList();
-                                                      print(list);
-                                                      // get the factory
-                                                      final factory = list[0];
-                                                      print(factory);
-                                                      selectShape(
-                                                          factory.toString());
-                                                      context
-                                                          .read<ShapeProvier>()
-                                                          .setShapeIndex(i);
-                                                    },
-                                                    child: Container(
-                                                      alignment:
-                                                          Alignment.center,
-                                                      height: 40,
-                                                      width: 40,
-                                                      decoration: BoxDecoration(
-                                                        shape:
-                                                            BoxShape.rectangle,
-                                                        border: Border.all(
-                                                          color: context
-                                                                      .watch<
-                                                                          ShapeProvier>()
-                                                                      .shapeIndex ==
-                                                                  i
-                                                              ? Colors.white
-                                                              : Colors
-                                                                  .transparent,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(10),
-                                                      ),
-                                                      child: Icon(
-                                                        context
-                                                            .read<
-                                                                ShapeProvier>()
-                                                            .shapeList[i]['icon'],
-                                                        color: Colors.white,
-                                                        size: 30,
-                                                      ),
+                          );*/
+                          },
+                          suggestionsBuilder: (context, searchController) {
+                            print('searchController');
+                            print(searchController.text);
+                            List data = [];
+                            if (searchController.text.isEmpty) {
+                              data = context.read<StorageProvider>().lstImages;
+                            } else {
+                              data = context
+                                  .read<StorageProvider>()
+                                  .lstImages
+                                  .where((element) => element['keywords']
+                                      .toString()
+                                      .toLowerCase()
+                                      .contains(
+                                          searchController.text.toLowerCase()))
+                                  .toList();
+                            }
+                            print('data');
+                            print(data);
+                            return List.generate(
+                                data.isEmpty
+                                    ? 1
+                                    : ((data.length / 2).floor() +
+                                        data.length % 2), (index) {
+                              return data.isEmpty
+                                  ? ListTile(
+                                      title: Text('No data found'),
+                                    )
+                                  : LayoutBuilder(
+                                      builder: (context, constraint) {
+                                      return Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          for (int i = 0; i < 2; i++)
+                                            if (index * 2 + i < data.length)
+                                              Expanded(
+                                                child: Container(
+                                                  margin: EdgeInsets.all(20),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20),
+                                                    border: Border.all(
+                                                      color: Colors.grey,
                                                     ),
                                                   ),
-                                              ],
+                                                  height: 300,
+                                                  child: InkWell(
+                                                    hoverColor:
+                                                        Colors.transparent,
+                                                    onTap: () {
+                                                      searchController
+                                                          .closeView(
+                                                              searchController
+                                                                  .text);
+                                                      int indexSelected = context
+                                                          .read<
+                                                              StorageProvider>()
+                                                          .lstImages
+                                                          .indexWhere(
+                                                              (element) =>
+                                                                  element[
+                                                                      'url'] ==
+                                                                  data[index *
+                                                                          2 +
+                                                                      i]['url']);
+                                                      print('indexSelected');
+                                                      print(indexSelected);
+                                                      pageController
+                                                          .animateToPage(
+                                                              indexSelected,
+                                                              duration: Duration(
+                                                                  milliseconds:
+                                                                      500),
+                                                              curve: Curves
+                                                                  .easeInOut);
+                                                      context
+                                                          .read<
+                                                              StorageProvider>()
+                                                          .setSelectedPage(
+                                                              indexSelected);
+                                                    },
+                                                    child: Column(
+                                                      children: [
+                                                        SizedBox(height: 10),
+                                                        Text(
+                                                          data[index * 2 + i]
+                                                                  ['keywords']
+                                                              .join(', '),
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        Container(
+                                                          padding:
+                                                              EdgeInsets.all(
+                                                                  10),
+                                                          height: 250,
+                                                          width:
+                                                              double.infinity,
+                                                          child: Image.network(
+                                                            data[index * 2 + i]
+                                                                ['url'],
+                                                            fit: BoxFit.cover,
+                                                          ),
+                                                        ),
+                                                        SizedBox(height: 10),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            else
+                                              Expanded(
+                                                child: Container(
+                                                  margin: EdgeInsets.all(20),
+                                                  height: 300,
+                                                  width: double.infinity,
+                                                  color: Colors.transparent,
+                                                ),
+                                              ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      );
+                                    });
+                            });
+                          },
+                          isFullScreen: true,
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            if (controller.canRedo) {
+                              redo();
+                            } else {
+                              return;
+                            }
+                          },
+                          icon: Icon(
+                            Icons.redo,
+                            color: context.watch<UnOrReDoProvider>().canRedo
+                                ? Colors.white
+                                : Colors.grey,
+                            size: 30,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            if (controller.canUndo) {
+                              undo();
+                            } else {
+                              return;
+                            }
+                          },
+                          icon: Icon(
+                            Icons.undo,
+                            color: context.watch<UnOrReDoProvider>().canUndo
+                                ? Colors.white
+                                : Colors.grey,
+                            size: 30,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            removeSelectedDrawable();
+                          },
+                          icon: Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            renderImage();
+                          },
+                          icon: Icon(
+                            Icons.save,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            useHand();
+                            context.read<HandProvider>().setIsHanding(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                          },
+                          icon: Icon(
+                            // icon to move the canvas
+                            PhosphorIconsFill.hand,
+                            color: context.watch<HandProvider>().isHanding
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
+
+                        // eraser icon
+                        IconButton(
+                          onPressed: () async {
+                            toggleFreeStyleErase();
+                            context.read<EraserProvider>().setIsErasing(true);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                            context.read<HandProvider>().setIsHanding(false);
+
+                            await showModalBottomSheet(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxHeight: 120,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                              ),
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  height: 100,
+                                  child: Row(
+                                    children: [
+                                      SizedBox(width: 20),
+                                      Text('Stroke Width'),
+                                      Expanded(
+                                        child: Slider(
+                                          value: context
+                                              .watch<EraserProvider>()
+                                              .strokeWidth,
+                                          min: 1,
+                                          max: 100,
+                                          divisions: 5,
+                                          label: context
+                                              .watch<EraserProvider>()
+                                              .strokeWidth
+                                              .toString(),
+                                          onChanged: (double value) {
+                                            context
+                                                .read<EraserProvider>()
+                                                .setStrokeWidth(value);
+                                            setFreeStyleStrokeWidth(value);
+                                          },
+                                        ),
+                                      ),
+                                      SizedBox(width: 20),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            PhosphorIconsFill.eraser,
+                            color: context.watch<EraserProvider>().isErasing
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () async {
+                            toggleFreeStyleDraw();
+                            context.read<PenProvider>().setIsPennig(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                            context.read<HandProvider>().setIsHanding(false);
+
+                            await showModalBottomSheet(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxHeight: 150,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                              ),
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Colors.blue,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Stroke Width'),
+                                          Expanded(
+                                            child: Slider(
+                                              value: context
+                                                  .watch<PenProvider>()
+                                                  .strokeWidth,
+                                              min: 1,
+                                              max: 100,
+                                              divisions: 10,
+                                              label: context
+                                                  .watch<PenProvider>()
+                                                  .strokeWidth
+                                                  .toString(),
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<PenProvider>()
+                                                    .setStrokeWidth(value);
+                                                setFreeStyleStrokeWidth(value);
+                                              },
                                             ),
                                           ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Stroke Width'),
-                                        Expanded(
-                                          child: Slider(
-                                            value: context
-                                                .watch<ShapeProvier>()
-                                                .strokeWidth
-                                                .toDouble(),
-                                            min: 1,
-                                            max: 100,
-                                            divisions: 10,
-                                            label: context
-                                                .watch<ShapeProvier>()
-                                                .strokeWidth
-                                                .toString(),
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<ShapeProvier>()
-                                                  .setStrokeWidth(
-                                                      value.toInt());
-                                              setShapeFactoryPaint(
-                                                  (controller.shapePaint ??
-                                                          shapePaint)
-                                                      .copyWith(
-                                                strokeWidth: value,
-                                              ));
-                                            },
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Color'),
+                                          Expanded(
+                                            child: Slider(
+                                              activeColor: context
+                                                  .watch<PenProvider>()
+                                                  .colorCalculated,
+                                              thumbColor: context
+                                                  .watch<PenProvider>()
+                                                  .colorCalculated,
+                                              value: context
+                                                  .watch<PenProvider>()
+                                                  .color,
+                                              min: 0,
+                                              max: 16777215,
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<PenProvider>()
+                                                    .setColor(value);
+                                                setFreeStyleColor(context
+                                                    .read<PenProvider>()
+                                                    .colorCalculated);
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Color'),
-                                        Expanded(
-                                          child: Slider(
-                                            activeColor: context
-                                                .watch<ShapeProvier>()
-                                                .colorCalculated,
-                                            thumbColor: context
-                                                .watch<ShapeProvier>()
-                                                .colorCalculated,
-                                            value: context
-                                                .watch<ShapeProvier>()
-                                                .color,
-                                            min: 0,
-                                            max: 16777215,
-                                            onChanged: (double value) {
-                                              context
-                                                  .read<ShapeProvier>()
-                                                  .setColor(value);
-                                              setShapeFactoryPaint(
-                                                  (controller.shapePaint ??
-                                                          shapePaint)
-                                                      .copyWith(
-                                                color: context
-                                                    .read<ShapeProvier>()
-                                                    .colorCalculated,
-                                              ));
-                                            },
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            Icons.edit,
+                            color: context.watch<PenProvider>().isPennig
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        // Text icon
+                        IconButton(
+                          onPressed: () async {
+                            addText();
+                            setTextFontSize(context
+                                .read<TextProvider>()
+                                .fontSize
+                                .toDouble());
+                            setTextColor();
+                            context.read<TextProvider>().setIsTexting(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<ShapeProvier>().setIsShaping(false);
+                            context.read<HandProvider>().setIsHanding(false);
+
+                            await showModalBottomSheet(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxHeight: 150,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                              ),
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Colors.blue,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Font Size'),
+                                          Expanded(
+                                            child: Slider(
+                                              value: context
+                                                  .watch<TextProvider>()
+                                                  .fontSize
+                                                  .toDouble(),
+                                              min: 1,
+                                              max: 100,
+                                              divisions: 10,
+                                              label: context
+                                                  .watch<TextProvider>()
+                                                  .fontSize
+                                                  .toString(),
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<TextProvider>()
+                                                    .setFontSize(value.toInt());
+                                                setTextFontSize(value);
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        SizedBox(width: 20),
-                                        Text('Fill Shape'),
-                                        SizedBox(width: 20),
-                                        Expanded(
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Color'),
+                                          Expanded(
+                                            child: Slider(
+                                              activeColor: context
+                                                  .watch<TextProvider>()
+                                                  .colorCalculated,
+                                              thumbColor: context
+                                                  .watch<TextProvider>()
+                                                  .colorCalculated,
+                                              value: context
+                                                  .watch<TextProvider>()
+                                                  .color,
+                                              min: 0,
+                                              max: 16777215,
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<TextProvider>()
+                                                    .setColor(value);
+                                                setTextColor();
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            PhosphorIconsBold.textT,
+                            color: context.watch<TextProvider>().isTexting
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                        // icon shape
+                        IconButton(
+                          onPressed: () async {
+                            context.read<ShapeProvier>().setIsShaping(true);
+                            context.read<EraserProvider>().setIsErasing(false);
+                            context.read<PenProvider>().setIsPennig(false);
+                            context.read<TextProvider>().setIsTexting(false);
+                            context.read<HandProvider>().setIsHanding(false);
+
+                            await showModalBottomSheet(
+                              useSafeArea: true,
+                              clipBehavior: Clip.antiAliasWithSaveLayer,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              )),
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.5,
+                                maxHeight: 400,
+                              ),
+                              isScrollControlled: true,
+                              showDragHandle: true,
+                              context: context,
+                              builder: (context) {
+                                return Container(
+                                  color: Colors.green,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.5,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Shapes'),
+                                          SizedBox(width: 20),
+                                          Expanded(
                                             child: Container(
-                                          alignment: Alignment.center,
-                                          child: Switch(
-                                            value: context
-                                                .watch<ShapeProvier>()
-                                                .fillShape,
-                                            onChanged: (value) {
-                                              context
-                                                  .read<ShapeProvier>()
-                                                  .setFillShape(value);
-                                              setShapeFactoryPaint(
-                                                  (controller.shapePaint ??
-                                                          shapePaint)
-                                                      .copyWith(
-                                                style: value
-                                                    ? PaintingStyle.fill
-                                                    : PaintingStyle.stroke,
-                                              ));
-                                            },
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  for (int i = 0;
+                                                      i <
+                                                          context
+                                                              .read<
+                                                                  ShapeProvier>()
+                                                              .shapeList
+                                                              .length;
+                                                      i++)
+                                                    GestureDetector(
+                                                      onTap: () {
+                                                        Map map = context
+                                                            .read<
+                                                                ShapeProvier>()
+                                                            .shapeList[i];
+                                                        // map to list
+                                                        List list =
+                                                            map.values.toList();
+                                                        print(list);
+                                                        // get the factory
+                                                        final factory = list[0];
+                                                        print(factory);
+                                                        selectShape(
+                                                            factory.toString());
+                                                        context
+                                                            .read<
+                                                                ShapeProvier>()
+                                                            .setShapeIndex(i);
+                                                      },
+                                                      child: Container(
+                                                        alignment:
+                                                            Alignment.center,
+                                                        height: 40,
+                                                        width: 40,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          shape: BoxShape
+                                                              .rectangle,
+                                                          border: Border.all(
+                                                            color: context
+                                                                        .watch<
+                                                                            ShapeProvier>()
+                                                                        .shapeIndex ==
+                                                                    i
+                                                                ? Colors.white
+                                                                : Colors
+                                                                    .transparent,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(10),
+                                                        ),
+                                                        child: Icon(
+                                                          context
+                                                              .read<
+                                                                  ShapeProvier>()
+                                                              .shapeList[i]['icon'],
+                                                          color: Colors.white,
+                                                          size: 30,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
-                                        )),
-                                        SizedBox(width: 20),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        icon: Icon(
-                          PhosphorIconsBold.shapes,
-                          color: context.watch<ShapeProvier>().isShaping
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Stroke Width'),
+                                          Expanded(
+                                            child: Slider(
+                                              value: context
+                                                  .watch<ShapeProvier>()
+                                                  .strokeWidth
+                                                  .toDouble(),
+                                              min: 1,
+                                              max: 100,
+                                              divisions: 10,
+                                              label: context
+                                                  .watch<ShapeProvier>()
+                                                  .strokeWidth
+                                                  .toString(),
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<ShapeProvier>()
+                                                    .setStrokeWidth(
+                                                        value.toInt());
+                                                setShapeFactoryPaint(
+                                                    (controller.shapePaint ??
+                                                            shapePaint)
+                                                        .copyWith(
+                                                  strokeWidth: value,
+                                                ));
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Color'),
+                                          Expanded(
+                                            child: Slider(
+                                              activeColor: context
+                                                  .watch<ShapeProvier>()
+                                                  .colorCalculated,
+                                              thumbColor: context
+                                                  .watch<ShapeProvier>()
+                                                  .colorCalculated,
+                                              value: context
+                                                  .watch<ShapeProvier>()
+                                                  .color,
+                                              min: 0,
+                                              max: 16777215,
+                                              onChanged: (double value) {
+                                                context
+                                                    .read<ShapeProvier>()
+                                                    .setColor(value);
+                                                setShapeFactoryPaint(
+                                                    (controller.shapePaint ??
+                                                            shapePaint)
+                                                        .copyWith(
+                                                  color: context
+                                                      .read<ShapeProvier>()
+                                                      .colorCalculated,
+                                                ));
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          SizedBox(width: 20),
+                                          Text('Fill Shape'),
+                                          SizedBox(width: 20),
+                                          Expanded(
+                                              child: Container(
+                                            alignment: Alignment.center,
+                                            child: Switch(
+                                              value: context
+                                                  .watch<ShapeProvier>()
+                                                  .fillShape,
+                                              onChanged: (value) {
+                                                context
+                                                    .read<ShapeProvier>()
+                                                    .setFillShape(value);
+                                                setShapeFactoryPaint(
+                                                    (controller.shapePaint ??
+                                                            shapePaint)
+                                                        .copyWith(
+                                                  style: value
+                                                      ? PaintingStyle.fill
+                                                      : PaintingStyle.stroke,
+                                                ));
+                                              },
+                                            ),
+                                          )),
+                                          SizedBox(width: 20),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            PhosphorIconsBold.shapes,
+                            color: context.watch<ShapeProvier>().isShaping
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          context
-                              .read<GridProvider>()
-                              .setGrid(!context.read<GridProvider>().isGrid);
-                        },
-                        icon: Icon(
-                          Icons.grid_3x3_sharp,
-                          color: context.watch<GridProvider>().isGrid
-                              ? Colors.grey
-                              : Colors.white,
-                          size: 30,
-                        ),
-                      )
-                    ],
+                        IconButton(
+                          onPressed: () {
+                            context
+                                .read<GridProvider>()
+                                .setGrid(!context.read<GridProvider>().isGrid);
+                          },
+                          icon: Icon(
+                            Icons.grid_3x3_sharp,
+                            color: context.watch<GridProvider>().isGrid
+                                ? Colors.grey
+                                : Colors.white,
+                            size: 30,
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -939,120 +1130,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                         : Center(
                             child: CircularProgressIndicator(),
                           ),
-                    /*StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  stream: context
-                      .read<StorageProvider>()
-                      .getAllImage(context.watch<AuthProvider>().user!.uid),
-                  builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
-                    switch (snapshot.connectionState) {
-                      case ConnectionState.waiting:
-                        return Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      default:
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Something went wrong'),
-                          );
-                        } else {
-                          if (snapshot.hasData) {
-                            print(snapshot.data!.data());
-                            List list = snapshot.data!.get('images');
-                            pageController = PageController(
-                                initialPage: list.length, keepPage: true);
-                            print(list);
-                            return PageView.builder(
-                              controller: pageController,
-                              itemCount: list.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index >= list.length) {
-                                  return // start canvas
-                                      Container(
-                                    child: Stack(
-                                      children: [
-                                        Visibility(
-                                          visible: context
-                                              .watch<GridProvider>()
-                                              .isGrid,
-                                          child: Positioned(
-                                            child: Container(
-                                              height: MediaQuery.of(context)
-                                                  .size
-                                                  .height,
-                                              width: MediaQuery.of(context)
-                                                      .size
-                                                      .width -
-                                                  80,
-                                              child: Column(
-                                                children: [
-                                                  for (int i = 50;
-                                                      i <
-                                                          MediaQuery.of(context)
-                                                              .size
-                                                              .width;
-                                                      i += 50)
-                                                    Line(
-                                                      y: i,
-                                                      x: -MediaQuery.of(context)
-                                                              .size
-                                                              .height
-                                                              .toInt() +
-                                                          30,
-                                                      isSideBarOpen:
-                                                          sidebarOpen,
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                            left: 0,
-                                            top: 0,
-                                          ),
-                                        ),
-                                        FlutterPainter(
-                                          controller: controller,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  // end cqanva
-                                } else {
-                                  return Container(
-                                    child: Image.network(
-                                      list[index]['url'],
-                                      fit: BoxFit.cover,
-                                    ),
-                                  );
-                                }
-                              },
-                            );
-
-                            */ /*return PageView(
-                              physics: NeverScrollableScrollPhysics(),
-                              controller: pageController,
-                              children: [
-                                for (int i = 0; i < list.length; i++)
-                                  Container(
-                                    child: Image.network(
-                                      list[i]['url'],
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                              ],
-                            );*/ /*
-                          } else {
-                            return Center(child: CircularProgressIndicator());
-                          }
-                        }
-                    }
-                  },
-                ),*/
 
                     // end of the canvas
                   ),
                   Container(
                     height: 50,
-                    width: MediaQuery.of(context).size.width - 80,
-                    color: Colors.red,
+                    width: sidebarOpen
+                        ? MediaQuery.of(context).size.width - 80
+                        : MediaQuery.of(context).size.width,
+                    color: Theme.of(context).colorScheme.primary,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -1378,109 +1464,205 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 
   void renderImage() async {
-    ui.Image img = await controller.renderImage(
-      Size(1920, 1080),
+    List<String> keywords = [];
+    List<TextEditingController> controllers = [TextEditingController()];
+    Stream<int> getNbController() async* {
+      yield controllers.length;
+    }
+
+    Widget input = Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controllers[0],
+            decoration: InputDecoration(
+              hintText: 'Enter keyword',
+            ),
+          ),
+        ),
+      ],
     );
-    // final file = File('${(await getTemporaryDirectory()).path}/img.png');
-    // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
-    Uint8List? bytes = await img.pngBytes;
-
-    final file = File('${(await getTemporaryDirectory()).path}/img.png');
-    await file.writeAsBytes(bytes!);
-    String userId = context.read<AuthProvider>().user!.uid;
-
-    Get.snackbar(
-      'Uploading',
-      '',
-      margin: EdgeInsets.all(10),
-      borderRadius: 10,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-      shouldIconPulse: true,
-      showProgressIndicator: false,
-      isDismissible: false,
-      messageText: null,
-      titleText: StreamBuilder(
-          stream: context.read<StorageProvider>().uploadImage(file, userId),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              print(snapshot.data!.bytesTransferred);
-              double progress = (snapshot.data!.bytesTransferred /
-                      snapshot.data!.totalBytes) *
-                  100;
-
-              if (snapshot.data!.state == TaskState.success) {
-                // get url and save to firestore
-                print(snapshot.data!.ref.name);
-                snapshot.data!.ref.getDownloadURL().then((value) {
-                  print(value);
-                  context.read<StorageProvider>().addImageUrl(
-                      value,
-                      context.read<AuthProvider>().user!.uid,
-                      snapshot.data!.ref.name);
-                });
-
+    Get.dialog(
+        AlertDialog(
+          title: Text('Choose keywords'),
+          content: Container(
+            child: Column(children: [
+              SizedBox(height: 10),
+              StreamBuilder(
+                  builder: (context, snapshot) {
+                    int nb = snapshot.data ?? 0;
+                    print('nb');
+                    print(nb);
+                    print('snapshot');
+                    print(snapshot.data);
+                    if (snapshot.hasData) {
+                      return Container(
+                          height: 300,
+                          width: 300,
+                          child: ListView.builder(
+                              itemCount: nb,
+                              itemBuilder: (context, index) {
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: controllers[index],
+                                        decoration: InputDecoration(
+                                          hintText: 'Enter keyword',
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () {
+                                        controllers.removeAt(index);
+                                      },
+                                      icon: Icon(Icons.delete),
+                                    ),
+                                  ],
+                                );
+                              }));
+                    } else {
+                      return Container();
+                    }
+                  },
+                  stream: Stream.periodic(
+                      Duration(milliseconds: 1000), (x) => controllers.length)),
+              IconButton(
+                onPressed: () {
+                  controllers.add(TextEditingController());
+                },
+                icon: Icon(Icons.add),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
                 Get.back();
-              }
-
-              print('progress');
-              print(progress);
-              if (progress == 100) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '100%',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    SizedBox(width: 10),
-                    Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 50,
-                    ),
-                  ],
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Get.back();
+                ui.Image img = await controller.renderImage(
+                  Size(1920, 1080),
                 );
-              } else {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${progress.toInt()}%',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    SizedBox(width: 10),
-                    CircularProgressIndicator(
-                      backgroundColor: Colors.white,
-                      value: progress / 100,
-                      color: Colors.red,
-                    ),
-                  ],
+                // final file = File('${(await getTemporaryDirectory()).path}/img.png');
+                // await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+                Uint8List? bytes = await img.pngBytes;
+
+                final file =
+                    File('${(await getTemporaryDirectory()).path}/img.png');
+                await file.writeAsBytes(bytes!);
+                String userId = context.read<AuthProvider>().user!.uid;
+
+                Get.snackbar(
+                  'Uploading',
+                  '',
+                  margin: EdgeInsets.all(10),
+                  borderRadius: 10,
+                  snackPosition: SnackPosition.TOP,
+                  backgroundColor: Colors.blue,
+                  colorText: Colors.white,
+                  shouldIconPulse: true,
+                  showProgressIndicator: false,
+                  isDismissible: false,
+                  messageText: null,
+                  titleText: StreamBuilder(
+                      stream: context
+                          .read<StorageProvider>()
+                          .uploadImage(file, userId),
+                      builder: (context, snapshot) {
+                        List<String> lstWords = List.generate(
+                            controllers.length,
+                            (index) => controllers[index].text.trim());
+                        if (snapshot.hasData) {
+                          print(snapshot.data!.bytesTransferred);
+                          double progress = (snapshot.data!.bytesTransferred /
+                                  snapshot.data!.totalBytes) *
+                              100;
+
+                          if (snapshot.data!.state == TaskState.success) {
+                            // get url and save to firestore
+
+                            print(snapshot.data!.ref.name);
+                            snapshot.data!.ref.getDownloadURL().then((value) {
+                              print(value);
+                              context.read<StorageProvider>().addImageUrl(
+                                    value,
+                                    context.read<AuthProvider>().user!.uid,
+                                    snapshot.data!.ref.name,
+                                    lstWords,
+                                  );
+                            });
+
+                            Get.back();
+                          }
+
+                          print('progress');
+                          print(progress);
+                          if (progress == 100) {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '100%',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                SizedBox(width: 10),
+                                Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 50,
+                                ),
+                              ],
+                            );
+                          } else {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${progress.toInt()}%',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                SizedBox(width: 10),
+                                CircularProgressIndicator(
+                                  backgroundColor: Colors.white,
+                                  value: progress / 100,
+                                  color: Colors.red,
+                                ),
+                              ],
+                            );
+                          }
+                        } else {
+                          return Row(
+                            children: [
+                              Text(
+                                '0%',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              SizedBox(width: 10),
+                              CircularProgressIndicator(
+                                value: 0,
+                                color: Colors.white,
+                              ),
+                            ],
+                          );
+                        }
+                      }),
                 );
-              }
-            } else {
-              return Row(
-                children: [
-                  Text(
-                    '0%',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  SizedBox(width: 10),
-                  CircularProgressIndicator(
-                    value: 0,
-                    color: Colors.white,
-                  ),
-                ],
-              );
-            }
-          }),
-    );
-    controller.clearDrawables();
+                controller.clearDrawables();
 
-    print(file.path);
+                print(file.path);
 
-    print(file.length());
+                print(file.length());
+              },
+              child: Text('Upload'),
+            ),
+          ],
+        ),
+        barrierDismissible: false);
   }
 }
 

@@ -94,9 +94,11 @@ class StorageProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void addImageUrl(String url, String userId, String imageId) async {
+  void addImageUrl(
+      String url, String userId, String imageId, List<String> keywords) async {
     try {
-      await FirestoreRepository.instance.addImageUrl(url, userId, imageId);
+      await FirestoreRepository.instance
+          .addImageUrl(url, userId, imageId, keywords);
     } catch (e) {
       throw e;
     }
