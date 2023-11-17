@@ -214,7 +214,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    int nbPage = context.watch<StorageProvider>().lstImages.length;
+    int nbPage = context.read<StorageProvider>().lstImages.length;
     if (nbPage != 0 || context.watch<StorageProvider>().isCharged == true) {
       print('nbPage test');
       print(nbPage);
@@ -1544,6 +1544,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             ),
             TextButton(
               onPressed: () async {
+                Get.back();
                 ui.Image img = await controller.renderImage(
                   Size(1920, 1080),
                 );
@@ -1555,6 +1556,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                     File('${(await getTemporaryDirectory()).path}/img.png');
                 await file.writeAsBytes(bytes!);
                 String userId = context.read<AuthProvider>().user!.uid;
+
                 Get.snackbar(
                   'Uploading',
                   '',
@@ -1655,7 +1657,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                 print(file.path);
 
                 print(file.length());
-                Get.back();
               },
               child: Text('Upload'),
             ),
